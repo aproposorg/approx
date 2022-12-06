@@ -1,0 +1,12 @@
+# Ignore all project-unrelated files
+.bloop/*
+.bsp/*
+.metals/*
+.vscode/*
+project/*
+target/*
+test_run_dir/*
+wip/*
+
+# Include build properties file
+!project/build.properties
