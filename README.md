@@ -36,12 +36,12 @@ All exact designs are based on descriptions in [Ercegovac and Lang](https://www.
 
 | Type                                    | Name        | Code location                                                                    |
 |-----------------------------------------|-------------|----------------------------------------------------------------------------------|
-| Half adder                              | `HalfAdder` | [approx.addition.HalfAdder](./src/main/scala/approx/addition/Exact.scala#L6)     |
-| Full adder                              | `FullAdder` | [approx.addition.FullAdder](./src/main/scala/approx/addition/Exact.scala#L12)    |
-| Ripple-carry adder                      | `RCA`       | [approx.addition.RCA](./src/main/scala/approx/addition/Exact.scala#21)           |
-| Carry-lookahead adder                   | `CLA`       | [approx.addition.CLA](./src/main/scala/approx/addition/Exact.scala#63)           |
-| Two-layer carry-lookahead adder         | `CLA2`      | [approx.addition.CLA2](./src/main/scala/approx/addition/Exact.scala#92)          |
-| Carry-select adder                      | `CSA`       | [approx.addition.CSA](./src/main/scala/approx/addition/Exact.scala#145)          |
+| Half adder                              | `HalfAdder` | [approx.addition.HalfAdder](./src/main/scala/approx/addition/Exact.scala#L8)     |
+| Full adder                              | `FullAdder` | [approx.addition.FullAdder](./src/main/scala/approx/addition/Exact.scala#L14)    |
+| Ripple-carry adder                      | `RCA`       | [approx.addition.RCA](./src/main/scala/approx/addition/Exact.scala#L23)          |
+| Carry-lookahead adder                   | `CLA`       | [approx.addition.CLA](./src/main/scala/approx/addition/Exact.scala#L84)          |
+| Two-layer carry-lookahead adder         | `CLA2`      | [approx.addition.CLA2](./src/main/scala/approx/addition/Exact.scala#L118)        |
+| Carry-select adder                      | `CSA`       | [approx.addition.CSA](./src/main/scala/approx/addition/Exact.scala#L178)         |
 | Self-timed adder                        | `STA`       | [approx.addition.STA](./src/main/scala/approx/addition/ExactSelfTimed.scala#L13) |
 | Parallel carry-completion sensing adder | `CCA`       | [approx.addition.CCA](./src/main/scala/approx/addition/ExactSelfTimed.scala#L58) |
 
