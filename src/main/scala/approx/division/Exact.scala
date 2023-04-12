@@ -70,7 +70,3 @@ class Radix2Divider(width: Int) extends Divider(width) {
   io.done := done
   io.dbz  := dbz
 }
-
-object Radix2Divider extends App {
-  (new chisel3.stage.ChiselStage).emitVerilog(new Radix2Divider(4), Array("--target-dir", "build"))
-}
