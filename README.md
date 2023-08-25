@@ -2,7 +2,7 @@
 
 [![Actions Status](https://github.com/aproposorg/approx/actions/workflows/ci.yml/badge.svg)](https://github.com/aproposorg/approx/actions)
 
-This repository contains a collection of approximate arithmetic units for use in various digital designs. The units are written in [Chisel](https://github.com/chipsalliance/chisel3) with tests written for the exact units using [ChiselTest](https://github.com/ucb-bar/chiseltest). Currently only a selection of adders and multipliers are included, but we plan to extend this with sequential units for, e.g., division later.
+This repository contains a collection of approximate arithmetic units for use in various digital designs. The units are written in [Chisel](https://github.com/chipsalliance/chisel3) with tests written for the exact units using [ChiselTest](https://github.com/ucb-bar/chiseltest). Currently only a selection of adders and multipliers and a simple sequential division unit are included - more designs to come!
 
 When you use this library in a research project, please cite it as:
 
@@ -21,7 +21,7 @@ This README only contains a brief overview of the library's current contents. Al
 
 Utilizing Chisel and ChiselTest, `approx` requires a suitable installation of Scala. For this purpose, we use the Scala Build Tool (`sbt`) for which we provide a suitable build script. 
 
-Moreover, some tests run too slow in ChiselTest's built-in Treadle simulator, so we have instead decided to run them using Verilator (see e.g., `Radix2MultiplierSpec` [here](./src/test/scala/approx/multiplication/ExactMultiplierSpec.scala#L163)). Thus, to run all provided tests, one must have a suitable installation of Verilator available. Note that only [specific versions of Verilator](https://github.com/ucb-bar/chiseltest#verilator-versions) are officially supported.
+Moreover, some tests run too slow in ChiselTest's built-in Treadle simulator, so we have instead decided to run them using Verilator (see e.g., `Radix2MultiplierSpec` [here](./src/test/scala/approx/multiplication/ExactMultiplierSpec.scala#L165)). Thus, to run all provided tests, one must have a suitable installation of Verilator available. Note that only [specific versions of Verilator](https://github.com/ucb-bar/chiseltest#verilator-versions) are officially supported.
 
 This library is tested in Ubuntu 20.04 with Verilator 4.028.
 
@@ -86,28 +86,45 @@ Like above, the `approx.multiplication` library contains several approximate and
 
 ## Exact designs
 
-All exact designs are based on descriptions in [Ercegovac and Lang](https://www.sciencedirect.com/book/9781558607989/digital-arithmetic)'s book on digital arithmetic.
+All exact designs are based on descriptions in [Ercegovac and Lang](https://www.sciencedirect.com/book/9781558607989/digital-arithmetic)'s book on digital arithmetic. The tool also includes a generic compressor tree generator for either ASIC, Xilinx 7-Series/UltraScale or Versal FPGAs, or Intel FPGAs. The generator currently supports approximation by (column) truncation and _miscounting_ (i.e., inexact compression).
 
 | Type                          | Signed/unsigned | Name                                  | Code location                                                                                             |
 |-------------------------------|-----------------|---------------------------------------|-----------------------------------------------------------------------------------------------------------|
-| Compressor 3:2                |                 | `Compressor3to2`                      | [approx.multiplication.Compressor3to2](./src/main/scala/approx/multiplication/Exact.scala#L10)            |
-| Compressor 4:2                |                 | `Compressor4to2`, `Compressor4to2Opt` | [approx.multiplication.Compressor4to2](./src/main/scala/approx/multiplication/Exact.scala#L20)            |
-| Compressor 5:3                |                 | `Compressor5to3`                      | [approx.multiplication.Compressor5to3](./src/main/scala/approx/multiplication/Exact.scala#L47)            |
-| Compressor 7:3                |                 | `Compressor7to3`                      | [approx.multiplication.Compressor7to3](./src/main/scala/approx/multiplication/Exact.scala#L65)            |
+| Compressor 2:2                |                 | `Compressor2to2`                      | [approx.multiplication.Compressor3to2](./src/main/scala/approx/multiplication/Exact.scala#L10)            |
+| Compressor 3:2                |                 | `Compressor3to2`                      | [approx.multiplication.Compressor3to2](./src/main/scala/approx/multiplication/Exact.scala#L19)            |
+| Compressor 4:2                |                 | `Compressor4to2`, `Compressor4to2Opt` | [approx.multiplication.Compressor4to2](./src/main/scala/approx/multiplication/Exact.scala#L29)            |
+| Compressor 5:3                |                 | `Compressor5to3`                      | [approx.multiplication.Compressor5to3](./src/main/scala/approx/multiplication/Exact.scala#L56)            |
+| Compressor 7:3                |                 | `Compressor7to3`                      | [approx.multiplication.Compressor7to3](./src/main/scala/approx/multiplication/Exact.scala#L74)            |
 | 2x2-bit multiplier            |                 | `TwoxTwo`                             | [approx.multiplication.TwoxTwo](./src/main/scala/approx/multiplication/Exact.scala#L88)                   |
-| Radix-2 array multiplier      | Signed          | `Radix2Multiplier`                    | [approx.multiplication.Radix2Multiplier](./src/main/scala/approx/multiplication/Exact.scala#L106)         |
+| Radix-2 array multiplier      | Both            | `Radix2Multiplier`                    | [approx.multiplication.Radix2Multiplier](./src/main/scala/approx/multiplication/Exact.scala#L106)         |
 | Recursive multiplier          | Both            | `RecursiveMultiplier`                 | [approx.multiplication.RecursiveMultiplier](./src/main/scala/approx/multiplication/Exact.scala#L460)      |
 | Alphabet-set multiplier       | Both            | `AlphabetSetMultiplier`               | [approx.multiplication.AlphabetSetMultiplier](./src/main/scala/approx/multiplication/Exact.scala#L559)    |
 | Radix-2 sequential multiplier | Unsigned        | `Radix2SeqMultiplier`                 | [approx.multiplication.Radix2SeqMultiplier](./src/main/scala/approx/multiplication/ExactSequential.scala) |
 
 ## Approximate designs
 
-| Type                                      | Signed/unsigned | Name                                                   | Code location                                                                                              | Reference                                                                      |
-|-------------------------------------------|-----------------|--------------------------------------------------------|------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------|
-| Reduced compressor 4:2                    |                 | `Compressor4to2D1`, `Compressor4to2D2`                 | [approx.multiplication.Compressor4to2](./src/main/scala/approx/multiplication/Compressors.scala)           | [Momeni et al.](https://ieeexplore.ieee.org/document/6748013)                  |
-| Majority-based compressor 4:2             |                 | `Compressor4to2Maj`                                    | [approx.multiplication.Compressor4to2Maj](./src/main/scala/approx/multiplication/Compressors.scala#L29)    | [Moaiyeri et al.](https://link.springer.com/article/10.1007/s00542-017-3587-2) |
-| Kulkarni-style 2x2-bit multiplier         |                 | `Kulkarni`                                             | [approx.multiplication.Kulkarni](./src/main/scala/approx/multiplication/Kulkarni.scala)                    | [Kulkarni et al.](https://ieeexplore.ieee.org/document/5718826)                |
-| Rehman-style 2x2-bit multiplier           |                 | `ApproxMul2`, `ApproxMul3`, `ApproxMul4`, `ApproxMul5` | [approx.multiplication.Rehman](./src/main/scala/approx/multiplication/Rehman.scala)                        | [Rehman et al.](https://ieeexplore.ieee.org/document/7827657)                  |
-| Compressed radix-2 array multiplier       | Unsigned        | `CompressedMultiplier`                                 | [approx.multiplication.CompressedMultiplier](./src/main/scala/approx/multiplication/Compressed.scala)      | [Yang et al.](https://dl.acm.org/doi/10.1145/3299874.3317975)                  |
-| Error-tolerant multiplier                 | Both            | `ETM`                                                  | [approx.multiplication.ETM](./src/main/scala/approx/multiplication/ETM.scala)                              | [Kyaw et al.](https://ieeexplore.ieee.org/document/5713751)                    |
-| Approximate radix-2 sequential multiplier | Unsigned        | `ApproxRadix2SeqMultiplier`                            | [approx.multiplication.ApproxRadix2SeqMultiplier](./src/main/scala/approx/multiplication/Sequential.scala) | [Mannepalli et al.](https://dl.acm.org/doi/10.1145/3453688.3461482)            |
+| Type                                      | Signed/unsigned | Name                                                                  | Code location                                                                                              | Reference                                                                      |
+|-------------------------------------------|-----------------|-----------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------|
+| Reduced compressor 4:2                    |                 | `Compressor4to2D1`, `Compressor4to2D2`                                | [approx.multiplication.Compressor4to2](./src/main/scala/approx/multiplication/Compressors.scala#L14)       | [Momeni et al.](https://ieeexplore.ieee.org/document/6748013)                  |
+| Majority-based compressor 4:2             |                 | `Compressor4to2Maj`                                                   | [approx.multiplication.Compressor4to2Maj](./src/main/scala/approx/multiplication/Compressors.scala#L29)    | [Moaiyeri et al.](https://link.springer.com/article/10.1007/s00542-017-3587-2) |
+| Compressor 8:3                            |                 | `Compressor8to3`, `Compressor8to3SevenSeries`, `Compressor8to3Versal` | [approx.multiplication.Compressor8to3](./src/main/scala/approx/multiplication/Compressors.scala#L215)      | [Moaiyeri et al.](https://link.springer.com/article/10.1007/s00542-017-3587-2) |
+| Kulkarni-style 2x2-bit multiplier         |                 | `Kulkarni`                                                            | [approx.multiplication.Kulkarni](./src/main/scala/approx/multiplication/Kulkarni.scala)                    | [Kulkarni et al.](https://ieeexplore.ieee.org/document/5718826)                |
+| Rehman-style 2x2-bit multiplier           |                 | `ApproxMul2`, `ApproxMul3`, `ApproxMul4`, `ApproxMul5`                | [approx.multiplication.Rehman](./src/main/scala/approx/multiplication/Rehman.scala)                        | [Rehman et al.](https://ieeexplore.ieee.org/document/7827657)                  |
+| Compressed radix-2 array multiplier       | Unsigned        | `CompressedMultiplier`                                                | [approx.multiplication.CompressedMultiplier](./src/main/scala/approx/multiplication/Compressed.scala)      | [Yang et al.](https://dl.acm.org/doi/10.1145/3299874.3317975)                  |
+| Error-tolerant multiplier                 | Both            | `ETM`                                                                 | [approx.multiplication.ETM](./src/main/scala/approx/multiplication/ETM.scala)                              | [Kyaw et al.](https://ieeexplore.ieee.org/document/5713751)                    |
+| Approximate radix-2 sequential multiplier | Unsigned        | `ApproxRadix2SeqMultiplier`                                           | [approx.multiplication.ApproxRadix2SeqMultiplier](./src/main/scala/approx/multiplication/Sequential.scala) | [Mannepalli et al.](https://dl.acm.org/doi/10.1145/3453688.3461482)            |
+
+***
+# Dividers
+
+The `approx.division` library currently only contains an exact, sequential radix-2 divider. We hope to extend this collection in the future.
+
+## Exact designs
+
+| Type            | Signed/unsigned | Name            | Code location                                                                     |
+|-----------------|-----------------|-----------------|-----------------------------------------------------------------------------------|
+| Radix-2 divider | Unsigned        | `Radix2Divider` | [approx.division.Radix2Divider](./src/main/scala/approx/division/Exact.scala#L15) |
+
+## Approximate designs
+
+N/A
