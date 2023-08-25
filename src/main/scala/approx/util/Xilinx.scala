@@ -5,27 +5,28 @@ import chisel3.experimental.{IntParam, RawParam, StringParam}
 
 /** Collection of useful primitives for doing arithmetic with Xilinx devices
  * 
- * @note Currently includes the following device types
- *       - 7 Series (denoted by `SevenSeries`)
- *       - UltraScale (denoted by `UltraScale`)
- *       - Versal   (denoted by `Versal`)
+ * Currently includes the following device types
+ * - 7 Series   (denoted by `SevenSeries`)
+ * - UltraScale (denoted by `UltraScale`)
+ * - Versal     (denoted by `Versal`)
  * 
- * @note Commonly supported primitives are included in the `Common` object.
+ * Commonly supported primitives are included in the `Common` object.
  */
 object Xilinx {
   /** Useful common primitives for doing arithmetic with Xilinx devices
    * 
-   * @note Currently includes the following primitives:
-   *       - LUT1
-   *       - LUT2
-   *       - LUT3
-   *       - LUT4
-   *       - LUT5
-   *       - LUT6
-   *       - LUT6_2
+   * Currently includes the following primitives:
+   * - LUT1
+   * - LUT2
+   * - LUT3
+   * - LUT4
+   * - LUT5
+   * - LUT6
+   * - LUT6_2
    */
   object Common {
     /** Generate an initialization string for a LUT1
+     * 
      * @param fO the function to the generate the output
      * @return an initialization string for a LUT1
      */
@@ -39,6 +40,7 @@ object Xilinx {
     }
 
     /** Generate an initialization string for a LUT2
+     * 
      * @param fO the function to the generate the output
      * @return an initialization string for a LUT2
      */
@@ -53,6 +55,7 @@ object Xilinx {
     }
 
     /** Generate an initialization string for a LUT3
+     * 
      * @param fO the function to the generate the output
      * @return an initialization string for a LUT3
      */
@@ -68,6 +71,7 @@ object Xilinx {
     }
 
     /** Generate an initialization string for a LUT4
+     * 
      * @param fO the function to the generate the output
      * @return an initialization string for a LUT4
      */
@@ -84,6 +88,7 @@ object Xilinx {
     }
 
     /** Generate an initialization string for a LUT5
+     * 
      * @param fO the function to the generate the output
      * @return an initialization string for a LUT5
      */
@@ -101,6 +106,7 @@ object Xilinx {
     }
 
     /** Generate an initialization string for a LUT6
+     * 
      * @param fO the function to the generate the output
      * @return an initialization string for a LUT6
      */
@@ -119,10 +125,11 @@ object Xilinx {
     }
 
     /** Generate an initialization string for a LUTx with `x` in the range 1 to 6
+     * 
      * @param fO the function to the generate the output
      * @return an initialization string for a LUTx
      */
-    private def genLUTInitString(fO: Seq[Boolean] => Boolean, x: Int): String = {
+    private[approx] def genLUTInitString(fO: Seq[Boolean] => Boolean, x: Int): String = {
       require(1 <= x && x <= 6, "can only generate initialization strings for LUTs with 1 to 6 inputs")
       val width = 1 << x
       val tTableO = (0 until width).foldLeft(Array.empty[Boolean]) { case (acc, i) =>
@@ -136,6 +143,7 @@ object Xilinx {
     }
 
     /** Generate an initialization string for a LUT6_2
+     * 
      * @param fO5 the function to generate the O5 output
      * @param fO6 the function to generate the O6 output
      * @return an initialization string for a LUT6_2
@@ -169,12 +177,12 @@ object Xilinx {
 
   /** Useful primitives for doing arithmetic with 7 Series devices
    * 
-   * @note Currently includes the following primitives:
-   *       - CARRY4
-   *       - DSP48E1
+   * Currently includes the following primitives:
+   * - CARRY4
+   * - DSP48E1
    * 
-   * @note Documentation for these is available in 
-   *       https://docs.xilinx.com/v/u/2012.2-English/ug953-vivado-7series-libraries
+   * Documentation for these is available in 
+   * https://docs.xilinx.com/v/u/2012.2-English/ug953-vivado-7series-libraries
    */
   object SevenSeries {
     class CARRY4 extends BlackBox {
@@ -280,12 +288,12 @@ object Xilinx {
 
   /** Useful primitives for doing arithmetic with UltraScale devices
    * 
-   * @note Currently includes the following primitives:
-   *       - CARRY8
-   *       - DSP48E2
+   * Currently includes the following primitives:
+   * - CARRY8
+   * - DSP48E2
    * 
-   * @note Documentation for these is available in 
-   *       https://docs.xilinx.com/v/u/2018.1-English/ug974-vivado-ultrascale-libraries
+   * Documentation for these is available in 
+   * https://docs.xilinx.com/v/u/2018.1-English/ug974-vivado-ultrascale-libraries
    */
   object UltraScale {
     class CARRY8(carryType: String = "SINGLE_CY8") extends BlackBox(Map("CARRY_TYPE" -> StringParam(carryType))) {
@@ -422,22 +430,23 @@ object Xilinx {
 
   /** Useful primitives for doing arithmetic with Versal devices
    * 
-   * @note Currently includes the following primitives:
-   *       - LUT6CY
-   *       - LOOKAHEAD8
-   *       - DSP58
+   * Currently includes the following primitives:
+   * - LUT6CY
+   * - LOOKAHEAD8
+   * - DSP58
    * 
-   * @note Documentation for these is available in 
-   *       https://docs.xilinx.com/viewer/book-attachment/xpIylNRZbUxJCzqBIAu5oQ/J9YbjhhnJdPNUarvS5Zcww
+   * Documentation for these is available in 
+   * https://docs.xilinx.com/viewer/book-attachment/xpIylNRZbUxJCzqBIAu5oQ/J9YbjhhnJdPNUarvS5Zcww
    */
   object Versal {
     /** Generate an initialization string for a LUT6CY
+     * 
      * @param fO51 the function to generate the O51 output
      * @param fO52 the function to generate the O52 output
      * @return an initialization string for a LUT6CY
      * 
-     * @note The least significant half of the truth table of `fO51` constitutes the 
-     *       function of the `PROP` output.
+     * The least significant half of the truth table of `fO51` constitutes the 
+     * function of the `PROP` output.
      */
     def genLUT6CYInitString(fO51: Seq[Boolean] => Boolean, fO52: Seq[Boolean] => Boolean): String = {
       val (tTableO51, tTableO52) = (32 until 64).foldLeft((Array.empty[Boolean], Array.empty[Boolean])) {

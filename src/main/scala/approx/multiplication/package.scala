@@ -1,9 +1,10 @@
 package approx
 
 import chisel3._
-import chisel3.util._
+import chisel3.util.Decoupled
 
 package object multiplication {
+
   /** 2x2-bit multiplier IO bundle */
   class TwoXTwoMultIO extends Bundle {
     val a = Input(UInt(2.W))
@@ -14,32 +15,6 @@ package object multiplication {
   /** Abstract 2x2-bit multiplier module class */
   abstract class TwoXTwoMult extends Module {
     val io = IO(new TwoXTwoMultIO)
-  }
-
-  /** Partial product reduction types */
-  object ReductionType extends Enumeration {
-    type ReductionType = Value
-    val NaiveReduction, ColumnReduction3to2, ColumnReduction5to3 = Value
-  }
-  import ReductionType._
-
-  /** Generate a 2D bit matrix for radix 2 partial products
-   * 
-   * @param w the width of the multiplication
-   * @return a (non-reduced) 2D bit matrix of radix-2 partial products
-   */
-  def radix2PProdGen(w: Int) = {
-    (0 until w).map { r =>
-      (0 until 2*w).map { c =>
-        if (r == 0) {
-          c <= w
-        } else if (r == w-1) {
-          c >= w-1
-        } else {
-          r <= c && c < r+w
-        }
-      }.toArray
-    }.toArray
   }
 
   /** Multiplier IO bundle
@@ -81,7 +56,20 @@ package object multiplication {
   abstract class SeqMultiplier(val width: Int) extends Module {
     val io = IO(new SeqMultiplierIO(width))
   }
-  
+
+  /** Compressor 2:2 IO bundle */
+  class C2to2IO extends Bundle {
+    val x1 = Input(Bool())
+    val x2 = Input(Bool())
+    val s    = Output(Bool())
+    val cout = Output(Bool())
+  }
+
+  /** Abstract compressor 2:2 module class */
+  abstract class C2to2 extends Module {
+    val io = IO(new C2to2IO)
+  }
+
   /** Compressor 3:2 IO bundle */
   class C3to2IO extends Bundle {
     val x1 = Input(Bool())

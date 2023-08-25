@@ -1,7 +1,7 @@
 package approx.multiplication
 
 import chisel3._
-import chisel3.util._
+import chisel3.util.{is, switch}
 import chisel3.experimental.ChiselEnum
 
 /** Sequential radix-2 multiplier

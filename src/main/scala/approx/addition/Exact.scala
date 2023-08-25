@@ -1,8 +1,8 @@
 package approx.addition
 
 import chisel3._
-import chisel3.util.HasBlackBoxResource
 import chisel3.experimental.IntParam
+import chisel3.util.HasBlackBoxResource
 
 /** Accurate half-adder */
 class HalfAdder extends HA {

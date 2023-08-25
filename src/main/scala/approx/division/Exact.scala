@@ -7,8 +7,8 @@ import chisel3.util.log2Up
  * 
  * @param width the width of the divider
  * 
- * @note Implementation of the algorithm from 
- *       https://projectf.io/posts/division-in-verilog/ [2023]
+ * Implementation of the algorithm from 
+ * https://projectf.io/posts/division-in-verilog/ [2023]
  * 
  * Only works for unsigned numbers.
  */

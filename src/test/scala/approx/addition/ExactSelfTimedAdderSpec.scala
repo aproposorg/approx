@@ -2,7 +2,9 @@ package approx.addition
 
 import chisel3._
 import chisel3.util.log2Up
+
 import chiseltest._
+
 import org.scalatest.flatspec.AnyFlatSpec
 
 /** Common test patterns for exact, self-timed adders */

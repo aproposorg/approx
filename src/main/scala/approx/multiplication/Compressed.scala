@@ -1,10 +1,10 @@
 package approx.multiplication
 
-import scala.collection.mutable
+import chisel3._
 
 import approx.addition.{FullAdder, HalfAdder}
 
-import chisel3._
+import scala.collection.mutable
 
 /** Radix 2 combinational multiplier
  * 
@@ -14,9 +14,30 @@ import chisel3._
  * Implementation of the multiplier of Yang et al. [2019]. 
  * 
  * Only works for unsigned numbers.
+ * 
+ * @todo Merge with the compressor tree generator.
  */
 class CompressedMultiplier(width: Int, val approxWidth: Int) extends Multiplier(width) {
   require(approxWidth <= width, "width of approximate part must be less than the total width")
+
+  /** Generate a 2D bit matrix for radix 2 partial products
+   * 
+   * @param w the width of the multiplication
+   * @return a (non-reduced) 2D bit matrix of radix-2 partial products
+   */
+  private[CompressedMultiplier] def radix2PProdGen(w: Int) = {
+    (0 until w).map { r =>
+      (0 until 2*w).map { c =>
+        if (r == 0) {
+          c <= w
+        } else if (r == w-1) {
+          c >= w-1
+        } else {
+          r <= c && c < r+w
+        }
+      }.toArray
+    }.toArray
+  }
 
   private[CompressedMultiplier] type BitPosMatrix = mutable.ArrayBuffer[mutable.ArrayBuffer[Boolean]]
 

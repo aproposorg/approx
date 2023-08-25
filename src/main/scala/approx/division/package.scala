@@ -1,7 +1,6 @@
 package approx
 
 import chisel3._
-import chisel3.util._
 
 package object division {
   /** Divider IO bundle

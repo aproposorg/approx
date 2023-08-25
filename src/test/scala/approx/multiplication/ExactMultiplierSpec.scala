@@ -2,7 +2,9 @@ package approx.multiplication
 
 import chisel3._
 import chisel3.util.log2Up
+
 import chiseltest._
+
 import org.scalatest.flatspec.AnyFlatSpec
 
 /** Common test patterns for exact multipliers */
@@ -162,24 +164,28 @@ trait ExactMultiplierSpec extends AnyFlatSpec with ChiselScalatestTester {
 
 class Radix2MultiplierSpec extends ExactMultiplierSpec {
   behavior of "Radix-2 Multiplier"
-  import ReductionType._
-  val redTypes = List(NaiveReduction, ColumnReduction3to2, ColumnReduction5to3)
+  val oddWidths = List(5, 13, 29)
 
-  // Do simple and random tests for all reduction types
-  for (redType <- redTypes) {
-    it should s"do simple multiplications with $redType" in {
-      test(new Radix2Multiplier(SimpleWidth, redType))
+  // Do simple and random tests
+  it should "do simple multiplications" in {
+    test(new _Radix2Multiplier(SimpleWidth))
+      .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+      simpleTest(dut)
+    }
+  }
+
+  for (width <- CommonWidths ++ oddWidths) {
+    it should s"do random $width-bit unsigned multiplications" in {
+      test(new _Radix2Multiplier(width))
         .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
-        simpleTest(dut)
+        randomUnsignedTest(dut)
       }
     }
 
-    for (width <- CommonWidths) {
-      it should s"do random $width-bit multiplications with $redType" in {
-        test(new Radix2Multiplier(width, redType))
-          .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
-          randomSignedTest(dut)
-        }
+    it should s"do random $width-bit signed multiplications" in {
+      test(new _Radix2Multiplier(width, true, true))
+        .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+        randomSignedTest(dut)
       }
     }
   }
@@ -200,14 +206,14 @@ class RecursiveMultiplierSpec extends ExactMultiplierSpec {
   for (width <- CommonWidths ++ oddWidths) {
     it should s"do random $width-bit unsigned multiplications" in {
       test(new RecursiveMultiplier(width))
-        .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+        .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
         randomUnsignedTest(dut)
       }
     }
 
     it should s"do random $width-bit signed multiplications" in {
       test(new RecursiveMultiplier(width, true))
-        .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+        .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
         randomSignedTest(dut)
       }
     }
@@ -228,14 +234,14 @@ class AlphabetSetMultiplierSpec extends ExactMultiplierSpec {
   for (width <- CommonWidths) {
     it should s"do random $width-bit unsigned multiplications" in {
       test(new AlphabetSetMultiplier(width))
-        .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+        .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
         randomUnsignedTest(dut)
       }
     }
 
     it should s"do random $width-bit signed multiplications" in {
       test(new AlphabetSetMultiplier(width, true))
-        .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+        .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
         randomSignedTest(dut)
       }
     }

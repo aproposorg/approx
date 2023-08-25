@@ -1,9 +1,9 @@
 package approx
 
 import chisel3._
-import chisel3.util._
 
 package object addition {
+
   /** Adder IO bundle
    * 
    * @param width the width of the adder

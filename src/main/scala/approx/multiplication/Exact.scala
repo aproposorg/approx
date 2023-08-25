@@ -1,10 +1,19 @@
 package approx.multiplication
 
-import approx.addition.{HalfAdder, FullAdder}
-import ReductionType._
-
 import chisel3._
-import chisel3.util._
+import chisel3.util.{BitPat, is, log2Up, switch}
+
+import approx.addition.{HalfAdder, FullAdder}
+import approx.multiplication.comptree._
+
+/** 2:2 compressor */
+class Compressor2to2 extends C2to2 {
+  val add = Module(new HalfAdder)
+  add.io.x := io.x1
+  add.io.y := io.x2
+  io.s    := add.io.s
+  io.cout := add.io.cout
+}
 
 /** 3:2 compressor */
 class Compressor3to2 extends C3to2 {
@@ -98,357 +107,123 @@ class TwoXTwo extends TwoXTwoMult {
 /** Radix 2 combinational multiplier
  * 
  * @param width the width of the multiplier
- * @param red the reduction type to use (one of (default) [[NaiveReduction]], [[ColumnReduction3to2]] and [[ColumnReduction5to3]])
+ * @param aSigned whether the first operand is signed (defaults to false)
+ * @param bSigned whether the second operand is signed (defaults to false)
+ * @param targetDevice a string indicating the target device (defaults to "",
+ *                     meaning ASIC)
+ * @param approx the targeted approximation style (defaults to no approximation)
  * 
- * Only works for two's complement numbers, cf. Ercegovac and Lang [2004]
- * 
- * @todo Add reduction using 4:2 compressors.
+ * Makes use of the compressor tree generator to add partial products.
  */
-class Radix2Multiplier(width: Int, val red: ReductionType) extends Multiplier(width) {
-  /** Partial product reduction with 3:2 compressors
+class _Radix2Multiplier(width: Int, aSigned: Boolean = false, bSigned: Boolean = false,
+                       targetDevice: String = "", approx: Approximation = NoApproximation())
+  extends Multiplier(width) {
+  /** Compute the number of partial product bits in a particular
+   * column of the tree
    * 
-   * @param bpos 2D matrix of Booleans representing bit positions in use
-   * @param pprods three (potentially, partially reduced) partial products
-   * @return the reduced partial products
-   * 
-   * Both bpos and pprods must be 3 rows of 2*w bits
+   * @param col the column of the tree
+   * @param aW the width of the first operand
+   * @param bW the width of the second operand
+   * @param midLow the position of the least significant sign-extension
+   *               constant bit
+   * @param midHigh the position of the most significant sign-extension
+   *                constant bit
+   * @param upper the position of the most significant partial product bit
+   * @return the number of bits in column `col`
    */
-  private[Radix2Multiplier] def columnReduce3to2(bpos: Array[Array[Boolean]], pprods: Vec[Vec[Bool]]) = {
-    require(bpos.length == 3 && bpos(0).length == 2*width)
-    require(pprods.length == 3 && pprods(0).length == 2*width)
-    var bposRes   = (0 until 3).map { _ => Array.fill(2*width) { false } }.toArray
-    val pprodsRes = WireDefault(VecInit(Seq.fill(3) {
-      VecInit(Seq.fill(2*width) { false.B })
-    }))
-    (0 until 2*width).foreach { i =>
-      val count = (0 until 3).map { j => if (bpos(j)(i)) 1 else 0 }.reduce(_ + _)
-      count match {
-        case 1 => // Pass bit through
-          bposRes(0)(i) = true
-          pprodsRes(0)(i) := pprods(0)(i)
-        case 2 => // Pass bits through
-          bposRes(0)(i) = true
-          bposRes(2)(i) = true
-          pprodsRes(0)(i) := pprods(0)(i)
-          pprodsRes(2)(i) := pprods(1)(i)
-        case 3 => // Insert 3:2 compressor
-          bposRes(0)(i) = true
-          val comp    = Module(new Compressor3to2)
-          comp.io.x1 := pprods(0)(i)
-          comp.io.x2 := pprods(1)(i)
-          comp.io.x3 := pprods(2)(i)
-          pprodsRes(0)(i) := comp.io.s
-          if (i+1 < 2*width) {
-            bposRes(1)(i+1)    = true
-            pprodsRes(1)(i+1) := comp.io.cout
-          }
-        case _ =>
-      }
-    }
-    (bposRes, pprodsRes)
+  private[_Radix2Multiplier] def dotCount(col: Int, aW: Int, bW: Int, midLow: Int, midHigh: Int, upper: Int): Int = {
+    if (midLow > col) (col + 1)
+    else if (midHigh >= col && col >= midLow) scala.math.min(aW, bW)
+    else if (upper > col) (aW + bW - col - 1)
+    else 0
   }
 
-  /** Partial product reduction with 5:3 compressors
+  /** Compute the index of the least significant row from which to
+   * take partial product bits in a particular column of the tree
    * 
-   * @param bpos 2D matrix of Booleans representing bit positions in use
-   * @param pprods three (potentially, partially reduced) partial products
-   * @return the reduced partial products
-   * 
-   * Both bpos and pprods must be 3 rows of 2*w bits
+   * @param col the column of the tree
+   * @param bW the width of the second operand
+   * @return the least significant row index in column `col`
    */
-  private[Radix2Multiplier] def columnReduce5to3(bpos: Array[Array[Boolean]], pprods: Vec[Vec[Bool]]) = {
-    require(bpos.length == 5 && bpos(0).length == 2*width)
-    require(pprods.length == 5 && pprods(0).length == 2*width)
-    var bposRes = (0 until 5).map { _ => Array.fill(2*width) { false } }.toArray
-    val pprodsRes = WireDefault(VecInit(Seq.fill(5) {
-      VecInit(Seq.fill(2*width) { false.B })
-    }))
-    (0 until 2*width).foreach { i =>
-      val count = (0 until 5).map { j => if (bpos(j)(i)) 1 else 0 }.reduce(_ + _)
-      count match {
-        case 1 => // Pass bit through
-          bposRes(0)(i) = true
-          pprodsRes(0)(i) := pprods(0)(i)
-        case 2 => // Pass bits through
-          bposRes(0)(i) = true
-          bposRes(3)(i) = true
-          pprodsRes(0)(i) := pprods(0)(i)
-          pprodsRes(3)(i) := pprods(1)(i)
-        case 3 => // Pass bits through
-          bposRes(0)(i) = true
-          bposRes(3)(i) = true
-          bposRes(4)(i) = true
-          pprodsRes(0)(i) := pprods(0)(i)
-          pprodsRes(3)(i) := pprods(1)(i)
-          pprodsRes(4)(i) := pprods(2)(i)
-        case 4 => // Insert 5:3 compressor (one low input)
-          bposRes(0)(i) = true
-          val comp = Module(new Compressor5to3)
-          comp.io.x1 := pprods(0)(i)
-          comp.io.x2 := pprods(1)(i)
-          comp.io.x3 := pprods(2)(i)
-          comp.io.x4 := pprods(3)(i)
-          comp.io.x5 := false.B
-          pprodsRes(0)(i) := comp.io.s
-          if (i+1 < 2*width) {
-            bposRes(1)(i+1)    = true
-            pprodsRes(1)(i+1) := comp.io.c1
-          }
-          if (i+2 < 2*width) {
-            bposRes(2)(i+2)    = true
-            pprodsRes(2)(i+2) := comp.io.c2
-          }
-        case 5 => // Insert 5:3 compressor
-          bposRes(0)(i) = true
-          val comp = Module(new Compressor5to3)
-          comp.io.x1 := pprods(0)(i)
-          comp.io.x2 := pprods(1)(i)
-          comp.io.x3 := pprods(2)(i)
-          comp.io.x4 := pprods(3)(i)
-          comp.io.x5 := pprods(4)(i)
-          pprodsRes(0)(i)   := comp.io.s
-          if (i+1 < 2*width) {
-            bposRes(1)(i+1) = true
-            pprodsRes(1)(i+1) := comp.io.c1
-          }
-          if (i+2 < 2*width) {
-            bposRes(2)(i+2) = true
-            pprodsRes(2)(i+2) := comp.io.c2
-          }
-        case _ =>
+  private[_Radix2Multiplier] def lsCol(col: Int, bW: Int): Int = if (bW > col) 0 else col - bW + 1
+
+  // Depending on aSigned and bSigned, generate an unsigned or signed multiplier
+  if (aSigned || bSigned) {
+    // ... at least one operand is signed
+    // Extend the unsigned operand by one bit
+    val (aW, opA) = if (aSigned) (width, io.a) else (width+1, false.B ## io.a)
+    val (bW, opB) = if (bSigned) (width, io.b) else (width+1, false.B ## io.b)
+
+    // Create all the partial products
+    val pprods = (0 until aW-1).map { i =>
+      ~(opB(bW-1) & opA(i)) ## VecInit(opB.asBools.dropRight(1).map(_ & opA(i))).asUInt
+    } :+ ((opB(bW-1) & opA(aW-1)) ## ~VecInit(opB.asBools.dropRight(1).map(_ & opA(aW-1))).asUInt)
+
+    // Compute the positions of the sign-extension constants
+    val midLow  = scala.math.min(aW, bW) - 1
+    val midHigh = scala.math.max(aW, bW) - 1
+    val upper   = aW + bW - 1
+
+    // Instantiate a compressor tree and input the bits
+    // (incl. sign-extension constant)
+    val sig  = new MultSignature(aW, bW, true, true)
+    val comp = Module(CompressorTree(sig, targetDevice=targetDevice, approx=approx))
+    val ins  = Wire(Vec(sig.count, Bool()))
+    var offset = 0
+    (0 until sig.outW).foreach { col =>
+      // Add the partial product bits
+      val low  = lsCol(col, bW)
+      val high = low + dotCount(col, aW, bW, midLow, midHigh, upper)
+      (low until high).foreach { row =>
+        ins(offset) := pprods(row)(col - row)
+        offset += 1
+      }
+
+      // Add the sign-extension bits
+      if (col == midLow) {
+        ins(offset) := true.B
+        offset += 1
+      }
+      if (col == midHigh) {
+        ins(offset) := true.B
+        offset += 1
+      }
+      if (col == upper) {
+        ins(offset) := true.B
+        offset += 1
       }
     }
-    (bposRes, pprodsRes)
-  }
-
-  /** Move bits up in the partial product matrix
-   * 
-   * @param bpos 2D matrix of Booleans representing bit positions in use
-   * @param pprods 2D matrix of partial product bits
-   * @return a new 2D matrix of partial product bits with as many partial product bits moved toward row 0 as possible
-   */
-  private[Radix2Multiplier] def moveUp(bpos: Array[Array[Boolean]], pprods: Vec[Vec[Bool]]) = {
-    var bposRes   = bpos.clone
-    val pprodsRes = WireDefault(VecInit(Seq.fill(pprods.length) {
-      VecInit(Seq.fill(2*width) { false.B })
-    }))
-    var count = 0
-    (0 until 2*width).foreach { c =>
-      count = 0
-      (0 until bposRes.length).foreach { r =>
-        if (bposRes(r)(c)) {
-          // Pass bits over
-          pprodsRes(count)(c) := pprods(r)(c)
-
-          // Update array
-          bposRes(r)(c) = false
-          bposRes(count)(c) = true
-          count += 1
-        }
-      }
-    }
-    (bposRes, pprodsRes)
-  }
-
-  /** Iterative partial product reduction
-   * 
-   * @param bpos 2D matrix of Booleans representing bit positions in use
-   * @param pprods 2D matrix of partial product bits
-   * @return the reduced final product
-   */
-  private[Radix2Multiplier] def columnReduce(bpos: Array[Array[Boolean]], pprods: Vec[Vec[Bool]]) = {
-    var bposRes   = bpos.clone
-    var pprodsRes = WireDefault(pprods)
-    var iter = 1
-    while (bposRes.length > 2) {
-      iter += 1
-      var bposL   = List[Array[Array[Boolean]]]()
-      var pprodsL = List[Vec[Vec[Bool]]]()
-
-      red match {
-        case ColumnReduction3to2 =>
-          // Column reduce in chunks of three rows
-          val chunks = bposRes.length / 3
-          (0 until chunks).foreach { i =>
-            val res = columnReduce3to2(
-              bposRes.slice(i*3, (i+1)*3),
-              VecInit(pprodsRes.slice(i*3, (i+1)*3))
-            )
-            bposL   :+= res._1
-            pprodsL :+= res._2
-          }
-
-          // Copy over non-reduced rows
-          if (chunks * 3 != bposRes.length) {
-            bposL   :+= bposRes.slice(chunks * 3, bposRes.length)
-            pprodsL :+= VecInit(pprodsRes.slice(chunks * 3, bposRes.length))
-          }
-
-        case ColumnReduction5to3 =>
-          // Column reduce in chunks of five rows (if possible)
-          val chunks = bposRes.length / 5
-          (0 until chunks).foreach { i =>
-            val res = columnReduce5to3(
-              bposRes.slice(i*5, (i+1)*5),
-              VecInit(pprodsRes.slice(i*5, (i+1)*5))
-            )
-            bposL   :+= res._1
-            pprodsL :+= res._2
-          }
-
-          // Column reduce chunk of three rows if left over
-          val exChunk = if (bposRes.length - (chunks * 5) >= 3) 1 else 0
-          if (exChunk != 0) {
-            val (bot, top) = (chunks * 5, chunks * 5 + 3)
-            val res = columnReduce3to2(
-              bposRes.slice(bot, top),
-              VecInit(pprodsRes.slice(bot, top))
-            )
-            bposL   :+= res._1
-            pprodsL :+= res._2
-          }
-
-          // Copy over non-reduced rows
-          if ((chunks * 5) + (exChunk * 3) != bposRes.length) {
-            val bot = (chunks * 5) + (exChunk * 3)
-            bposL   :+= bposRes.slice(bot, bposRes.length)
-            pprodsL :+= VecInit(pprodsRes.slice(bot, bposRes.length))
-          }
-      }
-
-      // Bring reduced partial products into a common array
-      bposRes = bposL.reduce(_ ++ _).toArray
-      val pprodsLRed  = Wire(Vec(bposRes.length, Vec(2*width, Bool())))
-      var r = 0
-      (0 until pprodsL.length).foreach { i =>
-        for (l <- pprodsL(i)) {
-          pprodsLRed(r) := l
-          r += 1
-        }
-      }
-
-      // Move bits up in the array
-      val (movBpos, movPprods) = moveUp(bposRes, pprodsLRed)
-
-      // Reduce size of array
-      r = movBpos.length - 1
-      while (movBpos(r).forall(!_)) {
-        r -= 1
-      }
-      bposRes   = movBpos.slice(0, r+1)
-      pprodsRes = WireDefault(VecInit(movPprods.slice(0, r+1)))
-    }
-
-    // Add results (pprodsRes is two rows)
-    val sums  = Wire(Vec(2*width, Bool()))
-    val couts = Wire(Vec(2*width, Bool()))
-    sums(0)  := pprodsRes(0)(0) // always only one bit in use in 
-    couts(0) := false.B         // the first column 
-    (1 until 2*width).foreach { i =>
-      if (bposRes(0)(i) && bposRes(1)(i)) {
-        // Insert full adder
-        val fa     = Module(new FullAdder)
-        fa.io.x   := pprodsRes(0)(i)
-        fa.io.y   := pprodsRes(1)(i)
-        fa.io.cin := couts(i-1)
-        sums(i)   := fa.io.s
-        couts(i)  := fa.io.cout
-      } else {
-        // Insert half adder
-        val ha    = Module(new HalfAdder)
-        ha.io.x  := pprodsRes(0)(i)
-        ha.io.y  := couts(i-1)
-        sums(i)  := ha.io.s
-        couts(i) := ha.io.cout
-      }
-    }
-    sums.asUInt
-  }
-
-  // Generate partial products
-  val pprods = Wire(Vec(width, Vec(2*width, Bool())))
-  (0 until width).foreach { r =>
-    val aVec   = WireDefault(io.a(width-2, 0))
-    val common = VecInit(aVec.asTypeOf(Vec(width-1, Bool())).map(_ && io.b(r))).asUInt
-    if (r == 0) {
-      pprods(r) := (io.b(width-1) ## !(io.a(width-1) && io.b(r)) ## common).asTypeOf(pprods(r))
-    } else if (r == width-1) {
-      aVec      := ~io.a(width-2, 0)
-      pprods(r) := (true.B ## !(!io.a(width-1) && io.b(r)) ## common(common.getWidth-1, 1) ## !(io.a(0) && io.b(r)) ## 0.U(r.W)).asTypeOf(pprods(r))
-    } else {
-      pprods(r) := (!(io.a(width-1) && io.b(r)) ## common ## 0.U(r.W)).asTypeOf(pprods(r))
-    }
-  }
-
-  // Generate partial product reduction
-  red match {
-    case NaiveReduction =>
-      io.p := VecInit(pprods.map(_.asUInt)).reduceTree(_ + _)
-    case _ =>
-      val (movBpos, movPprods) = moveUp(radix2PProdGen(width), pprods)
-      io.p := columnReduce(movBpos, movPprods)
-  }
-}
-
-/** Exact unsigned recursive multiplier
- * 
- * @param width the width of the multiplier
- * 
- * Implementation of Karatsuba's algorithm cf. Danysh and Swartzlander [1998]
- */
-private[approx] class RecurMult(width: Int) extends Multiplier(width) {
-  /** Calculate absolute difference and sign of two operands
-   * 
-   * @param x0 the first operand
-   * @param x1 the second operand
-   * @return a pair of (sign, absolute difference)
-   */
-  private[RecurMult] def diff(x0: UInt, x1: UInt) = {
-    val d = x0 -& x1
-    val (sign, num) = (d(d.getWidth-1), d(d.getWidth-2, 0))
-    (sign, Mux(sign, -num, num))
-  }
-
-  // Generate multiplication hardware
-  if (width <= 2) {
-    // If this is a 2-bit multiplication, simply instantiate a TwoXTwo module
-    val mult = Module(new TwoXTwo)
-    mult.io.a := io.a
-    mult.io.b := io.b
-    io.p := mult.io.p
+    comp.io.in := ins.asUInt
+    io.p := comp.io.out
   } else {
-    // Otherwise, follow the steps of the algorithm. I.e.,
-    // 1) split the operands (evenly) in two $a1a0$ and $b1b0$,
-    // 2) calculate three sub-products $z2 = a1*b1$, 
-    //    $z1 = (a0-a1)*(b1-b0)+z2+z0$, $z0 = a0*b0$, and
-    // 3) combine results $p = (z2 << (2*m)) + (z1 << m) + z0$.
-    val m = if ((width & 1) == 1) 1 << (log2Up(width) - 1) else width / 2
-    val (a1, a0) = (io.a(width-1, m), io.a(m-1, 0))
-    val (b1, b0) = (io.b(width-1, m), io.b(m-1, 0))
-    val mults    = Array.fill(3) { Module(new RecurMult(m)) }
+    // ... both operands are unsigned
+    val (aW, opA) = (width, io.a)
+    val (bW, opB) = (width, io.b)
 
-    // First, the two easy sub-products z2 and z0
-    val z2 = WireDefault(0.U((2*width).W))
-    mults(2).io.a := a1
-    mults(2).io.b := b1
-    z2 := mults(2).io.p
+    // Create all the partial products
+    val pprods = (0 until aW).map { i => VecInit(opB.asBools.map(_ & opA(i))).asUInt }
 
-    val z0 = WireDefault(0.U((2*width).W))
-    mults(0).io.a := a0
-    mults(0).io.b := b0
-    z0 := mults(0).io.p
+    // Compute the positions of the sign-extension constants
+    val midLow  = scala.math.min(aW, bW) - 1
+    val midHigh = scala.math.max(aW, bW) - 1
+    val upper   = aW + bW - 1
 
-    // ... and next, the more troublesome sub-product
-    val z1 = WireDefault(0.U((2*width).W))
-    val (sA, a0a1) = diff(a0, a1)
-    val (sB, b1b0) = diff(b1, b0)
-    mults(1).io.a := a0a1
-    mults(1).io.b := b1b0
-    // ... making sure this product is adequately sign-extended
-    z1 := Mux(sA ^ sB, -(0.U(width.W) ## mults(1).io.p), 0.U(width.W) ## mults(1).io.p) + z2 + z0
-
-    // Combine and output result
-    io.p := (z2 ## 0.U((2*m).W)) + (z1 ## 0.U(m.W)) + z0
+    // Instantiate a compressor tree and input the bits
+    val sig  = new MultSignature(aW, bW, false, false)
+    val comp = Module(CompressorTree(sig, targetDevice=targetDevice, approx=approx))
+    val ins  = Wire(Vec(sig.count, Bool()))
+    var offset = 0
+    (0 until sig.outW).foreach { col =>
+      // Add the partial product bits
+      val low  = lsCol(col, bW)
+      val high = low + dotCount(col, aW, bW, midLow, midHigh, upper)
+      (low until high).foreach { row =>
+        ins(offset) := pprods(row)(col - row)
+        offset += 1
+      }
+    }
+    comp.io.in := ins.asUInt
+    io.p := comp.io.out
   }
 }
 
@@ -456,12 +231,72 @@ private[approx] class RecurMult(width: Int) extends Multiplier(width) {
  * 
  * @param width the width of the multiplier
  * @param signed whether the multiplier is for signed numbers (defaults to false)
- * 
- * Converts operands to use the [[RecurMult]] multiplier
  */
 class RecursiveMultiplier(width: Int, val signed: Boolean = false) extends Multiplier(width) {
+  /** Exact unsigned recursive multiplier
+   * 
+   * @param width the width of the multiplier
+   * 
+   * Implementation of Karatsuba's algorithm cf. Danysh and Swartzlander [1998]
+   */
+  private[RecursiveMultiplier] class Mult(width: Int) extends Multiplier(width) {
+    /** Calculate absolute difference and sign of two operands
+     * 
+     * @param x0 the first operand
+     * @param x1 the second operand
+     * @return a pair of (sign, absolute difference)
+     */
+    private[Mult] def diff(x0: UInt, x1: UInt) = {
+      val d = x0 -& x1
+      val (sign, num) = (d(d.getWidth-1), d(d.getWidth-2, 0))
+      (sign, Mux(sign, -num, num))
+    }
+
+    // Generate multiplication hardware
+    if (width <= 2) {
+      // If this is a 2-bit multiplication, simply instantiate a TwoXTwo module
+      val mult = Module(new TwoXTwo)
+      mult.io.a := io.a
+      mult.io.b := io.b
+      io.p := mult.io.p
+    } else {
+      // Otherwise, follow the steps of the algorithm. I.e.,
+      // 1) split the operands (evenly) in two $a1a0$ and $b1b0$,
+      // 2) calculate three sub-products $z2 = a1*b1$, 
+      //    $z1 = (a0-a1)*(b1-b0)+z2+z0$, $z0 = a0*b0$, and
+      // 3) combine results $p = (z2 << (2*m)) + (z1 << m) + z0$.
+      val m = if ((width & 1) == 1) 1 << (log2Up(width) - 1) else width / 2
+      val (a1, a0) = (io.a(width-1, m), io.a(m-1, 0))
+      val (b1, b0) = (io.b(width-1, m), io.b(m-1, 0))
+      val mults    = Array.fill(3) { Module(new Mult(m)) }
+
+      // First, the two easy sub-products z2 and z0
+      val z2 = WireDefault(0.U((2*width).W))
+      mults(2).io.a := a1
+      mults(2).io.b := b1
+      z2 := mults(2).io.p
+
+      val z0 = WireDefault(0.U((2*width).W))
+      mults(0).io.a := a0
+      mults(0).io.b := b0
+      z0 := mults(0).io.p
+
+      // ... and next, the more troublesome sub-product
+      val z1 = WireDefault(0.U((2*width).W))
+      val (sA, a0a1) = diff(a0, a1)
+      val (sB, b1b0) = diff(b1, b0)
+      mults(1).io.a := a0a1
+      mults(1).io.b := b1b0
+      // ... making sure this product is adequately sign-extended
+      z1 := Mux(sA ^ sB, -(0.U(width.W) ## mults(1).io.p), 0.U(width.W) ## mults(1).io.p) + z2 + z0
+
+      // Combine and output result
+      io.p := (z2 ## 0.U((2*m).W)) + (z1 ## 0.U(m.W)) + z0
+    }
+  }
+
   // Depending on signed, generate an unsigned or signed multiplier
-  val mult = Module(new RecurMult(width))
+  val mult = Module(new Mult(width))
   if (signed) {
     val (sA, sB) = (io.a(width-1), io.b(width-1))
     val ( a,  b) = (Mux(sA, -io.a, io.a), Mux(sB, -io.b, io.b))
@@ -475,96 +310,94 @@ class RecursiveMultiplier(width: Int, val signed: Boolean = false) extends Multi
   }
 }
 
-/** Exact unsigned alphabet set multiplier
- * 
- * @param width the width of the multiplier (must be an integral factor of 4)
- * 
- * Implementation of the multiplier from Park et al. [2000]
- */
-private[approx] class AlphabetSetMult(width: Int) extends Multiplier(width) {
-  val stages = width / 4
-  require(stages * 4 == width, "width must be an integral factor of 4")
-
-  /** Generate bank of pre-computes
-   * 
-   * @param x the multiplicand
-   * @return vector of eight products [x, 3x, 5x, ..., 15x]
-   */
-  private[AlphabetSetMult] def precomputes(x: UInt) = {
-    require(x.widthKnown && x.getWidth == width, "multiplicand must be w bits")
-    val prods = Wire(Vec(8, UInt((width+4).W)))
-    prods(0) := x                           // x
-    prods(1) := (x ## 0.U(1.W)) +& x        // 2x + x
-    prods(2) := (x ## 0.U(2.W)) +& x        // 4x + x
-    prods(3) := (x ## 0.U(3.W)) -& x        // 8x - x
-    prods(4) := (x ## 0.U(3.W)) +& x        // 8x + x
-    prods(5) := (x ## 0.U(3.W)) +& prods(1) // 8x + 3x
-    prods(6) := (x ## 0.U(3.W)) +& prods(2) // 8x + 5x
-    prods(7) := (x ## 0.U(4.W)) -& x        // 16x - x
-    prods
-  }
-
-  /** Select right partial product
-   * 
-   * @param y the 4-bit multiplier segment
-   * @param pre the vector of pre-computes
-   * @return a partial product
-   */
-  private[AlphabetSetMult] def select(y: UInt, pre: Vec[UInt]) = {
-    require(y.widthKnown && y.getWidth == 4, "width of multiplier must be four bits")
-    require(pre.length == 8, "the vector of pre-computes must have eight entries")
-    val pprod = WireDefault(0.U((width+8).W))
-    when(y =/= 0.U) {
-      when(y === BitPat("b???1")) { // odd
-        pprod := pre(y(3, 1))
-      }.otherwise { // even
-        switch(y) {
-          is(2.U) {
-            pprod := pre(0) ## 0.U(1.W)
-          }
-          is(4.U) {
-            pprod := pre(0) ## 0.U(2.W)
-          }
-          is(6.U) {
-            pprod := pre(1) ## 0.U(1.W)
-          }
-          is(8.U) {
-            pprod := pre(0) ## 0.U(3.W)
-          }
-          is(10.U) {
-            pprod := pre(2) ## 0.U(1.W)
-          }
-          is(12.U) {
-            pprod := pre(1) ## 0.U(2.W)
-          }
-          is(14.U) {
-            pprod := pre(3) ## 0.U(1.W)
-          }
-        }
-      }
-    }
-    pprod
-  }
-
-  // For now, just naively add the partial products
-  val pre    = precomputes(io.a)
-  val bVec   = io.b.asTypeOf(Vec(stages, UInt(4.W)))
-  val pprods = VecInit((0 until stages).map { i => 
-    if (i != 0) select(bVec(i), pre) ## 0.U((i * 4).W) else select(bVec(i), pre)
-  })
-  io.p := pprods.reduceTree(_ + _)
-}
-
 /** Exact signed/unsigned alphabet set multiplier
  * 
  * @param width the width of the multiplier
  * @param signed whether the multiplier is for signed numbers (defaults to false)
- * 
- * Converts operands to use the [[AlphabetSetMult]] multiplier
  */
 class AlphabetSetMultiplier(width: Int, val signed: Boolean = false) extends Multiplier(width) {
+  /** Exact unsigned alphabet set multiplier
+   * 
+   * @param width the width of the multiplier (must be an integral factor of 4)
+   * 
+   * Implementation of the multiplier from Park et al. [2000]
+   */
+  private[AlphabetSetMultiplier] class Mult(width: Int) extends Multiplier(width) {
+    val stages = width / 4
+    require(stages * 4 == width, "width must be an integral factor of 4")
+
+    /** Generate bank of pre-computes
+     * 
+     * @param x the multiplicand
+     * @return vector of eight products [x, 3x, 5x, ..., 15x]
+     */
+    private[Mult] def precomputes(x: UInt) = {
+      require(x.widthKnown && x.getWidth == width, "multiplicand must be w bits")
+      val prods = Wire(Vec(8, UInt((width+4).W)))
+      prods(0) := x                           // x
+      prods(1) := (x ## 0.U(1.W)) +& x        // 2x + x
+      prods(2) := (x ## 0.U(2.W)) +& x        // 4x + x
+      prods(3) := (x ## 0.U(3.W)) -& x        // 8x - x
+      prods(4) := (x ## 0.U(3.W)) +& x        // 8x + x
+      prods(5) := (x ## 0.U(3.W)) +& prods(1) // 8x + 3x
+      prods(6) := (x ## 0.U(3.W)) +& prods(2) // 8x + 5x
+      prods(7) := (x ## 0.U(4.W)) -& x        // 16x - x
+      prods
+    }
+
+    /** Select right partial product
+     * 
+     * @param y the 4-bit multiplier segment
+     * @param pre the vector of pre-computes
+     * @return a partial product
+     */
+    private[Mult] def select(y: UInt, pre: Vec[UInt]) = {
+      require(y.widthKnown && y.getWidth == 4, "width of multiplier must be four bits")
+      require(pre.length == 8, "the vector of pre-computes must have eight entries")
+      val pprod = WireDefault(0.U((width+8).W))
+      when(y =/= 0.U) {
+        when(y === BitPat("b???1")) { // odd
+          pprod := pre(y(3, 1))
+        }.otherwise { // even
+          switch(y) {
+            is(2.U) {
+              pprod := pre(0) ## 0.U(1.W)
+            }
+            is(4.U) {
+              pprod := pre(0) ## 0.U(2.W)
+            }
+            is(6.U) {
+              pprod := pre(1) ## 0.U(1.W)
+            }
+            is(8.U) {
+              pprod := pre(0) ## 0.U(3.W)
+            }
+            is(10.U) {
+              pprod := pre(2) ## 0.U(1.W)
+            }
+            is(12.U) {
+              pprod := pre(1) ## 0.U(2.W)
+            }
+            is(14.U) {
+              pprod := pre(3) ## 0.U(1.W)
+            }
+          }
+        }
+      }
+      pprod
+    }
+
+    // For now, just naively add the partial products
+    val pre    = precomputes(io.a)
+    val bVec   = io.b.asTypeOf(Vec(stages, UInt(4.W)))
+    val pprods = VecInit((0 until stages).map { i => 
+      if (i != 0) select(bVec(i), pre) ## 0.U((i * 4).W) else select(bVec(i), pre)
+    })
+    io.p := pprods.reduceTree(_ + _)
+  }
+
   // Depending on signed, generate an unsigned or signed multiplier
-  val mult = Module(new AlphabetSetMult(width))
+  val mult = Module(new Mult(width))
   if (signed) {
     val (sA, sB) = (io.a(width-1), io.b(width-1))
     val ( a,  b) = (Mux(sA, -io.a, io.a), Mux(sB, -io.b, io.b))
