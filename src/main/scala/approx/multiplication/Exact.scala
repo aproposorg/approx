@@ -115,7 +115,7 @@ class TwoXTwo extends TwoXTwoMult {
  * 
  * Makes use of the compressor tree generator to add partial products.
  */
-class _Radix2Multiplier(width: Int, aSigned: Boolean = false, bSigned: Boolean = false,
+class Radix2Multiplier(width: Int, aSigned: Boolean = false, bSigned: Boolean = false,
                        targetDevice: String = "", approx: Approximation = NoApproximation())
   extends Multiplier(width) {
   /** Compute the number of partial product bits in a particular
@@ -131,7 +131,7 @@ class _Radix2Multiplier(width: Int, aSigned: Boolean = false, bSigned: Boolean =
    * @param upper the position of the most significant partial product bit
    * @return the number of bits in column `col`
    */
-  private[_Radix2Multiplier] def dotCount(col: Int, aW: Int, bW: Int, midLow: Int, midHigh: Int, upper: Int): Int = {
+  private[Radix2Multiplier] def dotCount(col: Int, aW: Int, bW: Int, midLow: Int, midHigh: Int, upper: Int): Int = {
     if (midLow > col) (col + 1)
     else if (midHigh >= col && col >= midLow) scala.math.min(aW, bW)
     else if (upper > col) (aW + bW - col - 1)
@@ -145,7 +145,7 @@ class _Radix2Multiplier(width: Int, aSigned: Boolean = false, bSigned: Boolean =
    * @param bW the width of the second operand
    * @return the least significant row index in column `col`
    */
-  private[_Radix2Multiplier] def lsCol(col: Int, bW: Int): Int = if (bW > col) 0 else col - bW + 1
+  private[Radix2Multiplier] def lsCol(col: Int, bW: Int): Int = if (bW > col) 0 else col - bW + 1
 
   // Depending on aSigned and bSigned, generate an unsigned or signed multiplier
   if (aSigned || bSigned) {

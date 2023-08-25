@@ -168,7 +168,7 @@ class Radix2MultiplierSpec extends ExactMultiplierSpec {
 
   // Do simple and random tests
   it should "do simple multiplications" in {
-    test(new _Radix2Multiplier(SimpleWidth))
+    test(new Radix2Multiplier(SimpleWidth))
       .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
       simpleTest(dut)
     }
@@ -176,14 +176,14 @@ class Radix2MultiplierSpec extends ExactMultiplierSpec {
 
   for (width <- CommonWidths ++ oddWidths) {
     it should s"do random $width-bit unsigned multiplications" in {
-      test(new _Radix2Multiplier(width))
+      test(new Radix2Multiplier(width))
         .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
         randomUnsignedTest(dut)
       }
     }
 
     it should s"do random $width-bit signed multiplications" in {
-      test(new _Radix2Multiplier(width, true, true))
+      test(new Radix2Multiplier(width, true, true))
         .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
         randomSignedTest(dut)
       }
