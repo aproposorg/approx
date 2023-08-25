@@ -82,11 +82,11 @@ Beware that some approximate adders (e.g., `DualModeRCA`, `GeAr`) do not extend 
 ***
 # Multipliers
 
-Like above, the `approx.multiplication` library contains several approximate and exact multiplier designs that are also parameterized. The list below specifies which designs are included currently.
+Like above, the `approx.multiplication` library contains several approximate and exact multiplier designs that are also parameterized. The list below specifies which designs are included currently. In addition to these, the tool also includes a generic compressor tree generator for ASIC, Xilinx 7-Series/UltraScale or Versal FPGA (supported by the primitives in [approx.util.Xilinx](./src/main/scala/approx/util/Xilinx.scala)), and Intel FPGA flows. The generator supports fully exact compression as well as approximation by (column) truncation and _miscounting_ (i.e., inexact compression).
 
 ## Exact designs
 
-All exact designs are based on descriptions in [Ercegovac and Lang](https://www.sciencedirect.com/book/9781558607989/digital-arithmetic)'s book on digital arithmetic. The tool also includes a generic compressor tree generator for either ASIC, Xilinx 7-Series/UltraScale or Versal FPGAs, or Intel FPGAs. The generator currently supports approximation by (column) truncation and _miscounting_ (i.e., inexact compression).
+All exact designs are based on descriptions in [Ercegovac and Lang](https://www.sciencedirect.com/book/9781558607989/digital-arithmetic)'s book on digital arithmetic. 
 
 | Type                          | Signed/unsigned | Name                                  | Code location                                                                                             |
 |-------------------------------|-----------------|---------------------------------------|-----------------------------------------------------------------------------------------------------------|
