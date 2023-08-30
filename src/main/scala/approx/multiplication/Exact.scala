@@ -230,16 +230,18 @@ class Radix2Multiplier(width: Int, aSigned: Boolean = false, bSigned: Boolean = 
 /** Exact signed/unsigned recursive multiplier
  * 
  * @param width the width of the multiplier
+ * @param approxWidth the width of the approximate part (defaults to 0)
  * @param signed whether the multiplier is for signed numbers (defaults to false)
  */
-class RecursiveMultiplier(width: Int, val signed: Boolean = false) extends Multiplier(width) {
+class RecursiveMultiplier(width: Int, approxWidth: Int = 0, val signed: Boolean = false) extends Multiplier(width) {
   /** Exact unsigned recursive multiplier
    * 
    * @param width the width of the multiplier
+   * @param msbW the log-2 weight of the most significant input bit
    * 
    * Implementation of Karatsuba's algorithm cf. Danysh and Swartzlander [1998]
    */
-  private[RecursiveMultiplier] class Mult(width: Int) extends Multiplier(width) {
+  private[RecursiveMultiplier] class Mult(width: Int, msbW: Int) extends Multiplier(width) {
     /** Calculate absolute difference and sign of two operands
      * 
      * @param x0 the first operand
@@ -254,8 +256,8 @@ class RecursiveMultiplier(width: Int, val signed: Boolean = false) extends Multi
 
     // Generate multiplication hardware
     if (width <= 2) {
-      // If this is a 2-bit multiplication, simply instantiate a TwoXTwo module
-      val mult = Module(new TwoXTwo)
+      // If this is a 2-bit multiplication, simply instantiate a 2x2-bit multiplier
+      val mult = Module(if (msbW <= approxWidth) new Kulkarni else new TwoXTwo)
       mult.io.a := io.a
       mult.io.b := io.b
       io.p := mult.io.p
@@ -268,27 +270,29 @@ class RecursiveMultiplier(width: Int, val signed: Boolean = false) extends Multi
       val m = if ((width & 1) == 1) 1 << (log2Up(width) - 1) else width / 2
       val (a1, a0) = (io.a(width-1, m), io.a(m-1, 0))
       val (b1, b0) = (io.b(width-1, m), io.b(m-1, 0))
-      val mults    = Array.fill(3) { Module(new Mult(m)) }
 
       // First, the two easy sub-products z2 and z0
+      val mult2 = Module(new Mult(m, scala.math.min(width, 2*m)))
       val z2 = WireDefault(0.U((2*width).W))
-      mults(2).io.a := a1
-      mults(2).io.b := b1
-      z2 := mults(2).io.p
+      mult2.io.a := a1
+      mult2.io.b := b1
+      z2 := mult2.io.p
 
+      val mult0 = Module(new Mult(m, m))
       val z0 = WireDefault(0.U((2*width).W))
-      mults(0).io.a := a0
-      mults(0).io.b := b0
-      z0 := mults(0).io.p
+      mult0.io.a := a0
+      mult0.io.b := b0
+      z0 := mult0.io.p
 
       // ... and next, the more troublesome sub-product
+      val mult1 = Module(new Mult(m, scala.math.min(width, 2*m)))
       val z1 = WireDefault(0.U((2*width).W))
       val (sA, a0a1) = diff(a0, a1)
       val (sB, b1b0) = diff(b1, b0)
-      mults(1).io.a := a0a1
-      mults(1).io.b := b1b0
+      mult1.io.a := a0a1
+      mult1.io.b := b1b0
       // ... making sure this product is adequately sign-extended
-      z1 := Mux(sA ^ sB, -(0.U(width.W) ## mults(1).io.p), 0.U(width.W) ## mults(1).io.p) + z2 + z0
+      z1 := Mux(sA ^ sB, -(0.U(width.W) ## mult1.io.p), 0.U(width.W) ## mult1.io.p) + z2 + z0
 
       // Combine and output result
       io.p := (z2 ## 0.U((2*m).W)) + (z1 ## 0.U(m.W)) + z0
@@ -296,7 +300,7 @@ class RecursiveMultiplier(width: Int, val signed: Boolean = false) extends Multi
   }
 
   // Depending on signed, generate an unsigned or signed multiplier
-  val mult = Module(new Mult(width))
+  val mult = Module(new Mult(width, width))
   if (signed) {
     val (sA, sB) = (io.a(width-1), io.b(width-1))
     val ( a,  b) = (Mux(sA, -io.a, io.a), Mux(sB, -io.b, io.b))

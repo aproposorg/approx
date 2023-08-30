@@ -33,6 +33,8 @@ object CompressorTree {
  * on the companion object for a simplified interface to this generator.
  * 
  * @todo Update to make use of the state in LUT placement and pipelining.
+ * 
+ * @todo Enable the use of multiple approximations at once.
  */
 private[comptree] class CompressorTree(val sig: Signature, context: Context) extends Module with FlattenInstance {
   val state = new State()
@@ -66,16 +68,39 @@ private[comptree] class CompressorTree(val sig: Signature, context: Context) ext
     require(sig.count == bits.getWidth)
     val res = new BitMatrix()
 
+    // If the compressor tree implements column truncation or OR compression,
+    // skip or compute the input bits for the columns in question here
     var ind = 0
     val startLog2Weight = context.approx match {
-      case Truncation(width) =>
+      case ColumnTruncation(width) =>
         ind += (0 until width).map(i => sig(i)).sum
+        width
+      case ORCompression(width) =>
+        for (log2Weight <- 0 until width) {
+          res.insertBit(io.in(ind + sig(log2Weight) - 1, ind).orR(), log2Weight)
+          ind += sig(log2Weight)
+        }
         width
       case _ => 0
     }
 
+    // If the compressor tree implements row truncation, generate the signature
+    // of the bits to truncate here
+    val truncSig = context.approx match {
+      case RowTruncation(rows) => sig match {
+        case multSig: MultSignature =>
+          val tSig = new MultSignature(rows, multSig.bW)
+          new Signature(tSig.signature :++ Array.fill(multSig.length - tSig.length)(0))
+        case _ =>
+          throw new Exception("can only generate compressor tree for multiplier signatures")
+      }
+      case _ => new Signature(Array.fill(sig.length)(0))
+    }
+
+    // Insert the remaining bits in the compressor tree
     for (log2Weight <- startLog2Weight until sig.length) {
-      for (row <- 0 until sig(log2Weight)) {
+      val startRow = truncSig(log2Weight)
+      for (row <- startRow until sig(log2Weight)) {
         res.insertBit(io.in(ind), log2Weight)
         ind += 1
       }

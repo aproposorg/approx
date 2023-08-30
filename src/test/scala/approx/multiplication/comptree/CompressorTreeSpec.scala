@@ -5,13 +5,14 @@ import chisel3._
 import chiseltest._
 
 import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 /** Common test patterns for compressor trees
  * 
  * We use the same signatures proposed by Preusser [2017] and some
  * randomly generated ones.
  */
-trait CompressorTreeSpec extends AnyFlatSpec with ChiselScalatestTester {
+trait CompressorTreeSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
   // The tests need an RNG to generate random inputs
   val rng = new scala.util.Random(42)
 
@@ -164,11 +165,24 @@ class ASICTreeSpec extends CompressorTreeSpec {
         dut.io.out.expect(0.U)
       }
     }
-    it should s"generate with signature $sig and truncation(${sig.length/2})" in {
-      test(CompressorTree(sig, targetDevice=targetDevice, approx=Truncation(sig.length/2))) { dut => }
+    it should s"generate with signature $sig and ColumnTruncation(${sig.length/2})" in {
+      test(CompressorTree(sig, targetDevice=targetDevice, approx=ColumnTruncation(sig.length/2))) { dut => }
     }
-    it should s"generate with signature $sig and approximation(${sig.length/2})" in {
+    it should s"generate with signature $sig and Miscounting(${sig.length/2})" in {
       test(CompressorTree(sig, targetDevice=targetDevice, approx=Miscounting(sig.length/2))) { dut => }
+    }
+    it should s"generate with signature $sig and ORCompression(${sig.length/2})" in {
+      test(CompressorTree(sig, targetDevice=targetDevice, approx=ORCompression(sig.length/2))) { dut => }
+    }
+    sig match {
+      case _: MultSignature =>
+        it should s"generate with signature $sig and RowTruncation(4)" in {
+          test(CompressorTree(sig, targetDevice=targetDevice, approx=RowTruncation(4))) { dut => }
+        }
+      case _ =>
+        it should s"fail to generate with signature $sig and RowTruncation(4)" in {
+          an [Exception] should be thrownBy(getVerilogString(CompressorTree(sig, targetDevice=targetDevice, approx=RowTruncation(4))))
+        }
     }
 
     /** Test with some simple edge case inputs */

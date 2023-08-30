@@ -7,6 +7,8 @@ import chiseltest._
 
 import org.scalatest.flatspec.AnyFlatSpec
 
+import approx.multiplication.comptree.{ColumnTruncation, Miscounting, ORCompression, RowTruncation}
+
 /** Common test patterns for exact multipliers */
 trait ExactMultiplierSpec extends AnyFlatSpec with ChiselScalatestTester {
   val SimpleWidth  = 8
@@ -175,6 +177,22 @@ class Radix2MultiplierSpec extends ExactMultiplierSpec {
   }
 
   for (width <- CommonWidths ++ oddWidths) {
+    it should s"generate with width=$width and ColumnTruncation(${width/2})" in {
+      test(new Radix2Multiplier(width, approx=ColumnTruncation(width/2))) { dut => }
+    }
+
+    it should s"generate with width=$width and Miscounting(${width/2})" in {
+      test(new Radix2Multiplier(width, approx=Miscounting(width/2))) { dut => }
+    }
+
+    it should s"generate with width=$width and ORCompression(${width/2})" in {
+      test(new Radix2Multiplier(width, approx=ORCompression(width/2))) { dut => }
+    }
+
+    it should s"generate with width=$width and RowTruncation(${width/4})" in {
+      test(new Radix2Multiplier(width, approx=RowTruncation(width/4))) { dut => }
+    }
+
     it should s"do random $width-bit unsigned multiplications" in {
       test(new Radix2Multiplier(width))
         .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
@@ -204,6 +222,10 @@ class RecursiveMultiplierSpec extends ExactMultiplierSpec {
   }
 
   for (width <- CommonWidths ++ oddWidths) {
+    it should s"generate with width=$width inexact 2x2 multipliers in the ${width/2} LSBs" in {
+      test(new RecursiveMultiplier(width, width/2)) { dut => }
+    }
+
     it should s"do random $width-bit unsigned multiplications" in {
       test(new RecursiveMultiplier(width))
         .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
@@ -212,7 +234,7 @@ class RecursiveMultiplierSpec extends ExactMultiplierSpec {
     }
 
     it should s"do random $width-bit signed multiplications" in {
-      test(new RecursiveMultiplier(width, true))
+      test(new RecursiveMultiplier(width, signed=true))
         .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
         randomSignedTest(dut)
       }

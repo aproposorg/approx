@@ -9,8 +9,10 @@ package object comptree {
   /** Compressor approximation styles */
   abstract class Approximation
   case class NoApproximation() extends Approximation
-  case class Truncation(width: Int) extends Approximation
+  case class RowTruncation(rows: Int) extends Approximation
+  case class ColumnTruncation(width: Int) extends Approximation
   case class Miscounting(width: Int) extends Approximation
+  case class ORCompression(width: Int) extends Approximation
 
   /** Compressor tree signature
    * 
@@ -60,7 +62,7 @@ package object comptree {
    * @param aSigned whether the first operand is signed (defaults to false)
    * @param bSigned whether the second operand is signed (defaults to false)
    */
-  class MultSignature(aW: Int, bW: Int, aSigned: Boolean = false, bSigned: Boolean = false)
+  class MultSignature(val aW: Int, val bW: Int, aSigned: Boolean = false, bSigned: Boolean = false)
     extends Signature(MultSignature.genSignature(!(aSigned || bSigned), aW, bW))
   private[comptree] object MultSignature {
     /** Generate the signature for a generic (un-)signed by (un-)signed

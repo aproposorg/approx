@@ -27,7 +27,7 @@ class ETM(width: Int, val approxWidth: Int) extends Multiplier(width) {
   }
 
   // Instantiate a recursive multiplier for the MSBs
-  val mult = Module(new RecursiveMultiplier(width-approxWidth, false))
+  val mult = Module(new RecursiveMultiplier(width-approxWidth, signed=false))
 
   // Connect the multiplier and extract the right result
   val ctrl = io.a(width-1, approxWidth).orR | io.b(width-1, approxWidth).orR
