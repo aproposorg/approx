@@ -29,6 +29,20 @@ private[comptree] object Counters {
    */
   private[Counters] abstract class Atom(val luts: Int = -1)
 
+  /** Represents the type of a generic counter
+   * 
+   * We consider two different types:
+   * - Exact counters that compute proper sums and carries
+   * - Approximate counters that compute inexact sums and carries
+   */
+  private[Counters] abstract trait CounterType
+
+  /** Represents an exact `CounterType` */
+  private[Counters] trait Exact extends CounterType
+
+  /** Represents an approximate `CounterType` */
+  private[Counters] trait Approximate extends CounterType
+
   /** Abstract counter class
    * 
    * @param sig the signature of the counter
@@ -39,6 +53,8 @@ private[comptree] object Counters {
    * also possess signatures that define their connectivity.
    */
   abstract class Counter(val sig: (Array[Int], Array[Int]), cost: Int = -1) {
+    this: CounterType =>
+
     /** The strength of the counter
      * 
      * We use the definition by Preusser [2017]
@@ -51,28 +67,12 @@ private[comptree] object Counters {
      * Intel FPGAs and ASICs.
      */
     val efficiency: Double = if (cost == -1) Double.MinValue else (sig._1.sum - sig._2.sum).toDouble / cost
+  }
 
-    /** Whether the counter is approximation
-     * 
-     * We compute and compare the needed output widths of the input and
-     * output signatures.
-     */
-    lazy val approximate: Boolean = {
-      def computeW(signature: Array[Int]): Int = {
-        var sum = signature.zipWithIndex.foldLeft(BigInt(0)) { case (acc, (count, log2Weight)) =>
-          acc + Array.fill(count) { BigInt(0).setBit(log2Weight) }.sum
-        }
-
-        // Return the MSB's position
-        var pos = 0
-        while (sum > 0) {
-          pos  += 1
-          sum >>= 1
-        }
-        pos
-      }
-      computeW(sig._1) == computeW(sig._2)
-    }
+  /** Returns true iff the counter mixes in `Approximate` */
+  def isApproximate(ctr: Counter): Boolean = ctr match {
+    case _: Counter with Approximate => true
+    case _ => false
   }
 
   /** Abstract hardware counter class
@@ -126,43 +126,43 @@ private[comptree] object Counters {
    */
   object ASIC extends Library {
     /** Counter (2 : 1,1] (half adder) */
-    private[ASIC] class Counter2_11 extends Counter((Array(2), Array(1, 1)), 2)
+    private[ASIC] class Counter2_11 extends Counter((Array(2), Array(1, 1)), 2) with Exact
 
     /** Counter (3 : 1,1] (full adder) */
-    private[ASIC] class Counter3_11 extends Counter((Array(3), Array(1, 1)), 3)
+    private[ASIC] class Counter3_11 extends Counter((Array(3), Array(1, 1)), 3) with Exact
 
     /** Counter (5 : 2,1] */
-    private[ASIC] class Counter4_21 extends Counter((Array(4), Array(1, 2)), 6)
+    private[ASIC] class Counter4_21 extends Counter((Array(4), Array(1, 2)), 6) with Exact
 
     /** Approximate counter (5 : 2,1] (4:2 compressor)
      * 
      * Implementation of the counter (design 1) from Momeni et al. [2014]
      */
-    private[ASIC] class Counter4_21Momeni extends Counter((Array(5), Array(1, 2)), 5)
+    private[ASIC] class Counter4_21Momeni extends Counter((Array(5), Array(1, 2)), 5) with Approximate
 
     /** Approximate counter (5 : 1,1] (4:2 compressor)
      * 
      * Implementation of the counter (design 2) from Momeni et al. [2014]
      */
-    private[ASIC] class Counter4_11Momeni extends Counter((Array(5), Array(1, 1)), 4)
+    private[ASIC] class Counter4_11Momeni extends Counter((Array(5), Array(1, 1)), 4) with Approximate
 
     /** Approximate counter (5 : 2,1] (4:2 compressor)
      * 
      * Implementation of the counter from Moaiyeri et al. [2017]
      */
-    private[ASIC] class Counter4_21Moaiyeri extends Counter((Array(5), Array(1, 2)), 4)
+    private[ASIC] class Counter4_21Moaiyeri extends Counter((Array(5), Array(1, 2)), 4) with Approximate
 
     /** Counter (5 : 1,1,1] (4:2 compressor) */
-    private[ASIC] class Counter5_111 extends Counter((Array(5), Array(1, 1, 1)), 8)
+    private[ASIC] class Counter5_111 extends Counter((Array(5), Array(1, 1, 1)), 8) with Exact
 
     /** Counter (7 : 1,1,1] */
-    private[ASIC] class Counter7_111 extends Counter((Array(7), Array(1, 1, 1)), 12)
+    private[ASIC] class Counter7_111 extends Counter((Array(7), Array(1, 1, 1)), 12) with Exact
 
     /** Approximate counter (8 : 1,1,1]
      * 
      * Implementation of the counter from Boroumand and Brisk [2019]
      */
-    private[ASIC] class Counter8_111 extends Counter((Array(8), Array(1, 1, 1)), 11)
+    private[ASIC] class Counter8_111 extends Counter((Array(8), Array(1, 1, 1)), 11) with Approximate
 
     /** Collection of exact counters */
     lazy val exactCounters: Seq[Counter] = Seq(
@@ -288,6 +288,8 @@ private[comptree] object Counters {
    * - (3 : 1,1]
    * - (2,5 : 1,2,1]
    * - (8 : 1,1,1] (approximate)
+   * 
+   * @todo Extend to support approximate compound counters.
    */
   object SevenSeries extends Library {
     /** Use an Atom class specific to this library to simplify type checking */
@@ -304,22 +306,22 @@ private[comptree] object Counters {
     private[SevenSeries] class Atom06(val inSig: Array[Int] = Array(6, 0)) extends SevenSeriesAtom(2)
 
     /** Counter (2 : 1,1] (half adder) */
-    private[SevenSeries] class Counter2_11 extends Counter((Array(2), Array(1, 1)), 1)
+    private[SevenSeries] class Counter2_11 extends Counter((Array(2), Array(1, 1)), 1) with Exact
 
     /** Counter (3 : 1,1] (full adder) */
-    private[SevenSeries] class Counter3_11 extends Counter((Array(3), Array(1, 1)), 1)
+    private[SevenSeries] class Counter3_11 extends Counter((Array(3), Array(1, 1)), 1) with Exact
 
     /** Counter (2,5 : 1,2,1]
      * 
      * Implementation of the counter from Preusser [2017]
      */
-    private[SevenSeries] class Counter25_121 extends Counter((Array(5, 2), Array(1, 2, 1)), 2)
+    private[SevenSeries] class Counter25_121 extends Counter((Array(5, 2), Array(1, 2, 1)), 2) with Exact
 
     /** Approximate counter (8 : 1,1,1]
      * 
      * Implementation of the counter from Boroumand and Brisk [2019]
      */
-    private[SevenSeries] class Counter8_111 extends Counter((Array(8), Array(1,1,1)), 4)
+    private[SevenSeries] class Counter8_111 extends Counter((Array(8), Array(1,1,1)), 4) with Approximate
 
     /** Function to compute the signature for a composed counter
      * 
@@ -343,7 +345,7 @@ private[comptree] object Counters {
      * @param atom2 the second atom
      */
     private[SevenSeries] class ComposedCounter(val atom1: SevenSeriesAtom, val atom2: SevenSeriesAtom)
-      extends Counter(compose(atom1, atom2), atom1.luts + atom2.luts)
+      extends Counter(compose(atom1, atom2), atom1.luts + atom2.luts) with Exact
 
     /** Collection of exact counters */
     lazy val exactCounters: Seq[Counter] = Seq(
@@ -673,6 +675,8 @@ private[comptree] object Counters {
    * - (3 : 1,1]
    * - (7 : 1,1,1]
    * - (8 : 1,1,1] (approximate)
+   * 
+   * @todo Extend to support approximate compound counters.
    */
   object Versal extends Library {
     /** Use an Atom class specific to this library to simplify type checking */
@@ -682,19 +686,19 @@ private[comptree] object Counters {
     }
 
     /** Counter (2 : 1,1] (half adder) */
-    private[Versal] class Counter2_11 extends Counter((Array(2), Array(1, 1)), 1)
+    private[Versal] class Counter2_11 extends Counter((Array(2), Array(1, 1)), 1) with Exact
 
     /** Counter (3 : 1,1] (full adder) */
-    private[Versal] class Counter3_11 extends Counter((Array(3), Array(1, 1)), 1)
+    private[Versal] class Counter3_11 extends Counter((Array(3), Array(1, 1)), 1) with Exact
 
     /** Counter (7 : 1,1,1] */
-    private[Versal] class Counter7_111 extends Counter((Array(7), Array(1, 1, 1)), 3)
+    private[Versal] class Counter7_111 extends Counter((Array(7), Array(1, 1, 1)), 3) with Exact
 
     /** Approximate counter (8 : 1,1,1]
      * 
      * Adaptation of the counter from Boroumand and Brisk [2019]
      */
-    private[Versal] class Counter8_111 extends Counter((Array(8), Array(1,1,1)), 3)
+    private[Versal] class Counter8_111 extends Counter((Array(8), Array(1,1,1)), 3) with Approximate
 
     /** Function to compute the signature for a composed counter
      * 
@@ -718,7 +722,7 @@ private[comptree] object Counters {
      * @param atom2 the second atom
      */
     private[Versal] class ComposedCounter(val atom1: VersalAtom, val atom2: VersalAtom)
-      extends Counter(compose(atom1, atom2), atom1.luts + atom2.luts)
+      extends Counter(compose(atom1, atom2), atom1.luts + atom2.luts) with Exact
 
     /** Collection of exact counters */
     lazy val exactCounters: Seq[Counter] = Seq(
@@ -908,16 +912,16 @@ private[comptree] object Counters {
    */
   object Intel extends Library {
     /** Counter (2 : 1,1] (half adder) */
-    private[Intel] class Counter2_11 extends Counter((Array(2), Array(1, 1)), 1)
+    private[Intel] class Counter2_11 extends Counter((Array(2), Array(1, 1)), 1) with Exact
 
     /** Counter (3 : 1,1] (full adder) */
-    private[Intel] class Counter3_11 extends Counter((Array(3), Array(1, 1)), 2)
+    private[Intel] class Counter3_11 extends Counter((Array(3), Array(1, 1)), 2) with Exact
 
     /** Approximate counter (8 : 1,1,1]
      * 
      * Implementation of the counter from Boroumand and Brisk [2019]
      */
-    private[Intel] class Counter8_111 extends Counter((Array(8), Array(1, 1, 1)), 4)
+    private[Intel] class Counter8_111 extends Counter((Array(8), Array(1, 1, 1)), 4) with Approximate
 
     /** Collection of exact counters */
     lazy val exactCounters: Seq[Counter] = Seq(

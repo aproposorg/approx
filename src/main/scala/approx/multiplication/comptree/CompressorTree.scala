@@ -218,7 +218,7 @@ private[comptree] class CompressorTree(val sig: Signature, context: Context) ext
     } else {
       // Otherwise, take approximate counters into account too
       context.approx match {
-        case Miscounting(width) if cntr.approximate =>
+        case Miscounting(width) if isApproximate(cntr) =>
           inSig.zipWithIndex.forall { case (cnt, col) =>
             col <= width && inBits.colCount(lsCol + col) >= cnt }
         case _ =>
