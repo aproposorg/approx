@@ -12,7 +12,7 @@ import approx.util.LOPD
  * 
  * Only works for unsigned numbers.
  */
-class MBM(width: Int) extends Multiplier(width) {
+class MBM(width: Int) extends Multiplier(width, width) {
   // Treat the operands separately ...
   // ... starting with the multiplier
   val lopdA = Module(new LOPD(width))

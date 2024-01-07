@@ -61,36 +61,74 @@ package object comptree {
    * @param bW the width of the second operand
    * @param aSigned whether the first operand is signed (defaults to false)
    * @param bSigned whether the second operand is signed (defaults to false)
+   * @param radix the radix of the multiplier (one of 2 or 4, defaults to 2)
    */
-  class MultSignature(val aW: Int, val bW: Int, aSigned: Boolean = false, bSigned: Boolean = false)
-    extends Signature(MultSignature.genSignature(!(aSigned || bSigned), aW, bW))
+  class MultSignature(val aW: Int, val bW: Int, aSigned: Boolean = false, bSigned: Boolean = false, radix: Int = 2)
+    extends Signature(MultSignature.genSignature(!(aSigned || bSigned), aW, bW, radix))
   private[comptree] object MultSignature {
     /** Generate the signature for a generic (un-)signed by (un-)signed
-     * integer multiplier
+     * radix 2 or 4 integer multiplier
      * 
      * @param unsigned whether both input operands are unsigned
      * @param aW the width of the first operand
      * @param bW the width of the second operand
+     * @param radix the radix of the multiplier
      * @return an array-formatted signature of the multiplier
      */
-    def genSignature(unsigned: Boolean, aW: Int, bW: Int): Array[Int] = {
+    def genSignature(unsigned: Boolean, aW: Int, bW: Int, radix: Int): Array[Int] = {
+      require(radix == 2 || radix == 4, "can only generate radix 2 or 4 multiplier signatures")
+      if (radix == 2) _genRadix2Signature(unsigned, aW, bW)
+      else            _genRadix4Signature(unsigned, aW, bW)
+    }
+
+    private[MultSignature] def _genRadix2Signature(unsigned: Boolean, aW: Int, bW: Int): Array[Int] = {
       val midLow  = scala.math.min(aW, bW) - 1
       val midHigh = scala.math.max(aW, bW) - 1
       val upper   = aW + bW - 1
+
       // Compute and insert the number of bits in each column of the signature
-      val pprods = (0 until aW + bW - (if (unsigned) 1 else 0)).foldLeft(Array.empty[Int]) { case (acc, col) =>
-        val numBits = if (col < midLow) col + 1
-          else if (midLow <= col && col <= midHigh) (if (aW > bW) bW else aW)
-          else if (col < upper) aW + bW - col - 1
-          else 0
-        acc :+ numBits
+      val pprods = Array.fill(aW + bW)(0)
+      (0 until aW).foreach { row =>
+        (row until bW + row).foreach { col => pprods(col) += 1 }
       }
+
       // Insert the sign-extension bits as needed
       if (!unsigned) {
         pprods(midLow)  += 1
         pprods(midHigh) += 1
         pprods(upper)   += 1
       }
+
+      pprods
+    }
+
+    private[MultSignature] def _genRadix4Signature(unsigned: Boolean, aW: Int, bW: Int): Array[Int] = {
+      val nRows = (aW + 1) / 2
+
+      // Compute and insert the number of bits in each column of the signature
+      val pprods = Array.fill(aW + bW)(0)
+      (0 until nRows).foreach { row =>
+        (0 until bW + (if (unsigned) 1 else 0)).foreach { col => pprods(col + 2 * row) += 1 }
+      }
+
+      // Insert the carry bits
+      (0 until nRows - (if (unsigned) 1 else 0)).foreach { row => pprods(2 * row) += 1 }
+
+      // Insert the sign bits
+      (0 until nRows - (if (unsigned) 1 else 0)).foreach { row =>
+        if (row == 0) { // insert (up to) three sign bits
+          val start = bW + (if (unsigned) 1 else 0)
+          val end   = scala.math.min(bW + 3 + (if (unsigned) 1 else 0), aW + bW)
+          (start until end).foreach { col => pprods(col) += 1}
+        } else { // insert (up to) one sign bit
+          val col = bW + 2 * row + (if (unsigned) 1 else 0)
+          if (col < (aW + bW)) pprods(col) += 1
+        }
+      }
+
+      // Insert the constant bits as needed (bW + 1 bit for shift + 3 sign bits)
+      (bW + 3 + (if (unsigned) 1 else 0) until aW + bW by 2).foreach { col => pprods(col) += 1 }
+
       pprods
     }
   }

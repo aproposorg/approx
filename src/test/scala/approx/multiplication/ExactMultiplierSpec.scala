@@ -7,12 +7,13 @@ import chiseltest._
 
 import org.scalatest.flatspec.AnyFlatSpec
 
-import approx.multiplication.comptree.{ColumnTruncation, Miscounting, ORCompression, RowTruncation}
+import approx.multiplication.comptree.{Approximation, ColumnTruncation, Miscounting, ORCompression, RowTruncation}
 
 /** Common test patterns for exact multipliers */
 trait ExactMultiplierSpec extends AnyFlatSpec with ChiselScalatestTester {
   val SimpleWidth  = 8
   val CommonWidths = List(4, 8, 16, 32)
+  val OddWidths    = List(5, 13, 29)
 
   /** Poke two values and check for a given value
    * 
@@ -53,8 +54,8 @@ trait ExactMultiplierSpec extends AnyFlatSpec with ChiselScalatestTester {
    * @param dut an unsigned multiplier module
    */
   def randomUnsignedTest[T <: Multiplier](implicit dut: T) = {
-    val w   = dut.io.a.getWidth
-    val n   = w << 2
+    val (aW, bW) = (dut.aWidth, dut.bWidth)
+    val n   = scala.math.max(aW, bW) << 2
     val rng = new scala.util.Random(0)
     
     // Set inputs low
@@ -63,28 +64,28 @@ trait ExactMultiplierSpec extends AnyFlatSpec with ChiselScalatestTester {
     // Multiply by zero
     // ... on port A
     (0 until n/2).foreach { _ =>
-      pokeAndExpect(BigInt(w, rng).U, 0.U)(0.U)
+      pokeAndExpect(BigInt(aW, rng).U, 0.U)(0.U)
     }
     // ... and on port B
     (0 until n/2).foreach { _ =>
-      pokeAndExpect(0.U, BigInt(w, rng).U)(0.U)
+      pokeAndExpect(0.U, BigInt(bW, rng).U)(0.U)
     }
 
     // Multiply by one
     // ... on port A
     (0 until n/2).foreach { _ =>
-      val v = BigInt(w, rng).U
+      val v = BigInt(aW, rng).U
       pokeAndExpect(v, 1.U)(v)
     }
     // ... and on port B
     (0 until n/2).foreach { _ =>
-      val v = BigInt(w, rng).U
+      val v = BigInt(bW, rng).U
       pokeAndExpect(1.U, v)(v)
     }
 
     // Generate a bunch of random products
-    val aNums = Array.fill(n) { BigInt(w, rng) }
-    val bNums = Array.fill(n) { BigInt(w, rng) }
+    val aNums = Array.fill(n) { BigInt(aW, rng) }
+    val bNums = Array.fill(n) { BigInt(bW, rng) }
     val prods = aNums.zip(bNums).map { case (a, b) => a * b }
     (0 until n).foreach { i =>
       pokeAndExpect(aNums(i).U, bNums(i).U)(prods(i).U)
@@ -96,10 +97,10 @@ trait ExactMultiplierSpec extends AnyFlatSpec with ChiselScalatestTester {
    * @param dut a signed multiplier module
    */
   def randomSignedTest[T <: Multiplier](dut: T) = {
-    val w    = dut.io.a.getWidth
-    val sext = (BigInt(1) <<   w  ) - 1
-    val max  = (BigInt(1) << (w-1)) - 1
-    val mask = (BigInt(1) << (2*w)) - 1
+    val (aW,    bW)    = (dut.aWidth, dut.bWidth)
+    val (aSext, bSext) = ((BigInt(1) <<   bW  ) - 1, (BigInt(1) <<   aW  ) - 1)
+    val (aMax,  bMax)  = ((BigInt(1) << (aW-1)) - 1, (BigInt(1) << (bW-1)) - 1)
+    val mask = (BigInt(1) << (aW + bW)) - 1
 
     // Set inputs low
     dut.io.a.poke(0.U)
@@ -108,18 +109,18 @@ trait ExactMultiplierSpec extends AnyFlatSpec with ChiselScalatestTester {
     dut.io.p.expect(0.U)
 
     // Multiply by zero
-    val n = w << 2
+    val n = scala.math.max(aW, bW) << 2
     val rng = new scala.util.Random(0)
     // ... on port A
     (0 until n/2).foreach { _ => 
-      dut.io.a.poke(BigInt(w, rng).U)
+      dut.io.a.poke(BigInt(aW, rng).U)
       dut.clock.step()
       dut.io.p.expect(0.U)
     }
     // ... and on port B
     dut.io.a.poke(0.U)
     (0 until n/2).foreach { _ => 
-      dut.io.b.poke(BigInt(w, rng).U)
+      dut.io.b.poke(BigInt(bW, rng).U)
       dut.clock.step()
       dut.io.p.expect(0.U)
     }
@@ -129,30 +130,30 @@ trait ExactMultiplierSpec extends AnyFlatSpec with ChiselScalatestTester {
     dut.io.b.poke(1.U)
     // ... on port A
     (0 until n/2).foreach { _ => 
-      val v = BigInt(w, rng)
+      val v = BigInt(aW, rng)
       dut.io.a.poke(v.U)
       dut.clock.step()
-      val r = if (v > max) (sext << w) | v else v
+      val r = if (v > aMax) (aSext << aW) | v else v
       dut.io.p.expect((r & mask).U)
     }
     // ... and on port B
     dut.io.a.poke(1.U)
     (0 until n/2).foreach { _ => 
-      val v = BigInt(w, rng)
+      val v = BigInt(bW, rng)
       dut.io.b.poke(v.U)
       dut.clock.step()
-      val r = if (v > max) (sext << w) | v else v
+      val r = if (v > bMax) (bSext << bW) | v else v
       dut.io.p.expect((r & mask).U)
     }
     dut.io.a.poke(0.U)
     dut.io.b.poke(0.U)
 
     // Generate a bunch of random products
-    val aNums = Array.fill(n) { BigInt(w, rng) }
-    val bNums = Array.fill(n) { BigInt(w, rng) }
+    val aNums = Array.fill(n) { BigInt(aW, rng) }
+    val bNums = Array.fill(n) { BigInt(bW, rng) }
     val prods = aNums.zip(bNums).map { case (a, b) => 
-      val aSxt = if (a > max) (sext << w) | a else a
-      val bSxt = if (b > max) (sext << w) | b else b
+      val aSxt = if (a > aMax) (aSext << aW) | a else a
+      val bSxt = if (b > bMax) (bSext << bW) | b else b
       (aSxt * bSxt) & mask
     }
     (0 until n).foreach { i =>
@@ -166,52 +167,154 @@ trait ExactMultiplierSpec extends AnyFlatSpec with ChiselScalatestTester {
 
 class Radix2MultiplierSpec extends ExactMultiplierSpec {
   behavior of "Radix-2 Multiplier"
-  val oddWidths = List(5, 13, 29)
 
-  // Do simple and random tests
-  it should "do simple multiplications" in {
-    test(new Radix2Multiplier(SimpleWidth))
-      .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
-      simpleTest(dut)
+  /** Run a generation test */
+  def generationTest(aWidth: Int, bWidth: Int, aSigned: Boolean, bSigned: Boolean, approx: Approximation) = {
+    it should s"generate signed=${aSigned || bSigned} with aWidth=$aWidth and bWidth=$bWidth and approx=$approx" in {
+      test(new Radix2Multiplier(aWidth, bWidth, aSigned, bSigned, approx=approx)) { dut => }
     }
   }
 
-  for (width <- CommonWidths ++ oddWidths) {
-    it should s"generate with width=$width and ColumnTruncation(${width/2})" in {
-      test(new Radix2Multiplier(width, approx=ColumnTruncation(width/2))) { dut => }
-    }
+  /** Run a combination of tests for different widths of the first operand */
+  def allTests(widths: List[Int]) = {
+    for (width <- widths) {
+      val approxes = List(ColumnTruncation(width/2), Miscounting(width/2), ORCompression(width/2), RowTruncation(width/4))
 
-    it should s"generate with width=$width and Miscounting(${width/2})" in {
-      test(new Radix2Multiplier(width, approx=Miscounting(width/2))) { dut => }
-    }
-
-    it should s"generate with width=$width and ORCompression(${width/2})" in {
-      test(new Radix2Multiplier(width, approx=ORCompression(width/2))) { dut => }
-    }
-
-    it should s"generate with width=$width and RowTruncation(${width/4})" in {
-      test(new Radix2Multiplier(width, approx=RowTruncation(width/4))) { dut => }
-    }
-
-    it should s"do random $width-bit unsigned multiplications" in {
-      test(new Radix2Multiplier(width))
-        .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
-        randomUnsignedTest(dut)
+      // Equal widths
+      for (approx <- approxes; signed <- List(false, true)) {
+        generationTest(width, width, signed, signed, approx)
       }
-    }
 
-    it should s"do random $width-bit signed multiplications" in {
-      test(new Radix2Multiplier(width, true, true))
-        .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
-        randomSignedTest(dut)
+      it should s"do random $width-bit unsigned multiplication" in {
+        test(new Radix2Multiplier(width, width))
+          .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+          randomUnsignedTest(dut)
+        }
+      }
+
+      it should s"do random $width-bit signed multiplication" in {
+        test(new Radix2Multiplier(width, width, true, true))
+          .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+          randomSignedTest(dut)
+        }
+      }
+
+      // Non-equal widths
+      for (approx <- approxes; signed <- List(false, true)) {
+        generationTest(width, if (width == SimpleWidth) SimpleWidth+1 else SimpleWidth, signed, signed, approx)
+      }
+
+      it should s"do random $width by $SimpleWidth-bit unsigned multiplications" in {
+        test(new Radix2Multiplier(width, SimpleWidth))
+          .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+          randomUnsignedTest(dut)
+        }
+      }
+
+      it should s"do random $width by $SimpleWidth-bit signed multiplications" in {
+        test(new Radix2Multiplier(width, SimpleWidth, true, true))
+          .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+          randomSignedTest(dut)
+        }
       }
     }
   }
 }
 
+class Radix2MultiplierSpecCommon extends Radix2MultiplierSpec {
+  // Do simple and random tests
+  it should "do simple multiplications" in {
+    test(new Radix2Multiplier(SimpleWidth, SimpleWidth))
+      .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+      simpleTest(dut)
+    }
+  }
+
+  // Do generation and random tests
+  allTests(CommonWidths)
+}
+
+class Radix2MultiplierSpecOdd extends Radix2MultiplierSpec {
+  // Do generation and random tests
+  allTests(OddWidths)
+}
+
+class Radix4MultiplierSpec extends ExactMultiplierSpec {
+  behavior of "Radix-4 Multiplier"
+
+  /** Run a generation test */
+  def generationTest(aWidth: Int, bWidth: Int, aSigned: Boolean, bSigned: Boolean, approx: Approximation) = {
+    it should s"generate signed=${aSigned || bSigned} with aWidth=$aWidth and bWidth=$bWidth and approx=$approx" in {
+      test(new Radix4Multiplier(aWidth, bWidth, aSigned, bSigned, approx=approx)) { dut => }
+    }
+  }
+
+  /** Run a combination of tests for different widths of the first operand */
+  def allTests(widths: List[Int]) = {
+    for (width <- widths) {
+      val approxes = List(ColumnTruncation(width/2), Miscounting(width/2), ORCompression(width/2), RowTruncation(width/4))
+
+      // Equal widths
+      for (approx <- approxes; signed <- List(false, true)) {
+        generationTest(width, width, signed, signed, approx)
+      }
+
+      it should s"do random $width-bit unsigned multiplication" in {
+        test(new Radix4Multiplier(width, width))
+          .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+          randomUnsignedTest(dut)
+        }
+      }
+
+      it should s"do random $width-bit signed multiplication" in {
+        test(new Radix4Multiplier(width, width, true, true))
+          .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+          randomSignedTest(dut)
+        }
+      }
+
+      // Non-equal widths
+      for (approx <- approxes; signed <- List(false, true)) {
+        generationTest(width, if (width == SimpleWidth) SimpleWidth+1 else SimpleWidth, signed, signed, approx)
+      }
+
+      it should s"do random $width by $SimpleWidth-bit unsigned multiplications" in {
+        test(new Radix4Multiplier(width, SimpleWidth))
+          .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+          randomUnsignedTest(dut)
+        }
+      }
+
+      it should s"do random $width by $SimpleWidth-bit signed multiplications" in {
+        test(new Radix4Multiplier(width, SimpleWidth, true, true))
+          .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+          randomSignedTest(dut)
+        }
+      }
+    }
+  }
+}
+
+class Radix4MultiplierSpecCommon extends Radix4MultiplierSpec {
+  // Do simple and random tests
+  it should "do simple multiplications" in {
+    test(new Radix4Multiplier(SimpleWidth, SimpleWidth))
+      .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+      simpleTest(dut)
+    }
+  }
+
+  // Do generation and random tests
+  allTests(CommonWidths)
+}
+
+class Radix4MultiplierSpecOdd extends Radix4MultiplierSpec {
+  // Do generation and random tests
+  allTests(OddWidths)
+}
+
 class RecursiveMultiplierSpec extends ExactMultiplierSpec {
   behavior of "Recursive Multiplier"
-  val oddWidths = List(5, 13, 29)
 
   // Do simple and random tests
   it should "do simple multiplications" in {
@@ -221,7 +324,7 @@ class RecursiveMultiplierSpec extends ExactMultiplierSpec {
     }
   }
 
-  for (width <- CommonWidths ++ oddWidths) {
+  for (width <- CommonWidths ++ OddWidths) {
     it should s"generate with width=$width inexact 2x2 multipliers in the ${width/2} LSBs" in {
       test(new RecursiveMultiplier(width, width/2)) { dut => }
     }

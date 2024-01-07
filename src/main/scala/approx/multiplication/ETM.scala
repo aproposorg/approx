@@ -9,7 +9,7 @@ import chisel3._
  * 
  * Implementation of the multiplier of Kyaw et al. [2010]
  */
-class ETM(width: Int, val approxWidth: Int) extends Multiplier(width) {
+class ETM(width: Int, val approxWidth: Int) extends Multiplier(width, width) {
   require(approxWidth <= width, "width of approximate part must be less than or equal to total width")
 
   // Approximate the LSBs

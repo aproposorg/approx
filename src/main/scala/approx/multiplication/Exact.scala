@@ -106,7 +106,8 @@ class TwoXTwo extends TwoXTwoMult {
 
 /** Radix 2 combinational multiplier
  * 
- * @param width the width of the multiplier
+ * @param aWidth the width of the first operand
+ * @param bWidth the width of the second operand
  * @param aSigned whether the first operand is signed (defaults to false)
  * @param bSigned whether the second operand is signed (defaults to false)
  * @param targetDevice a string indicating the target device (defaults to "",
@@ -115,28 +116,19 @@ class TwoXTwo extends TwoXTwoMult {
  * 
  * Makes use of the compressor tree generator to add partial products.
  */
-class Radix2Multiplier(width: Int, aSigned: Boolean = false, bSigned: Boolean = false,
+class Radix2Multiplier(aWidth: Int, bWidth: Int, aSigned: Boolean = false, bSigned: Boolean = false,
                        targetDevice: String = "", approx: Approximation = NoApproximation())
-  extends Multiplier(width) {
+  extends Multiplier(aWidth, bWidth) {
   /** Compute the number of partial product bits in a particular
    * column of the tree
    * 
    * @param col the column of the tree
    * @param aW the width of the first operand
    * @param bW the width of the second operand
-   * @param midLow the position of the least significant sign-extension
-   *               constant bit
-   * @param midHigh the position of the most significant sign-extension
-   *                constant bit
-   * @param upper the position of the most significant partial product bit
    * @return the number of bits in column `col`
    */
-  private[Radix2Multiplier] def dotCount(col: Int, aW: Int, bW: Int, midLow: Int, midHigh: Int, upper: Int): Int = {
-    if (midLow > col) (col + 1)
-    else if (midHigh >= col && col >= midLow) scala.math.min(aW, bW)
-    else if (upper > col) (aW + bW - col - 1)
-    else 0
-  }
+  private[Radix2Multiplier] def dotCount(col: Int, aW: Int, bW: Int): Int =
+    (0 until aW).filter(row => row <= col && col < (row + bW)).length
 
   /** Compute the index of the least significant row from which to
    * take partial product bits in a particular column of the tree
@@ -145,14 +137,15 @@ class Radix2Multiplier(width: Int, aSigned: Boolean = false, bSigned: Boolean = 
    * @param bW the width of the second operand
    * @return the least significant row index in column `col`
    */
-  private[Radix2Multiplier] def lsCol(col: Int, bW: Int): Int = if (bW > col) 0 else col - bW + 1
+  private[Radix2Multiplier] def lsCol(col: Int, bW: Int): Int =
+    if (bW > col) 0 else col - bW + 1
 
   // Depending on aSigned and bSigned, generate an unsigned or signed multiplier
   if (aSigned || bSigned) {
     // ... at least one operand is signed
     // Extend the unsigned operand by one bit
-    val (aW, opA) = if (aSigned) (width, io.a) else (width+1, false.B ## io.a)
-    val (bW, opB) = if (bSigned) (width, io.b) else (width+1, false.B ## io.b)
+    val (aW, opA) = if (aSigned) (aWidth, io.a) else (aWidth+1, false.B ## io.a)
+    val (bW, opB) = if (bSigned) (bWidth, io.b) else (bWidth+1, false.B ## io.b)
 
     // Create all the partial products
     val pprods = (0 until aW-1).map { i =>
@@ -173,7 +166,7 @@ class Radix2Multiplier(width: Int, aSigned: Boolean = false, bSigned: Boolean = 
     (0 until sig.outW).foreach { col =>
       // Add the partial product bits
       val low  = lsCol(col, bW)
-      val high = low + dotCount(col, aW, bW, midLow, midHigh, upper)
+      val high = low + dotCount(col, aW, bW)
       (low until high).foreach { row =>
         ins(offset) := pprods(row)(col - row)
         offset += 1
@@ -197,16 +190,11 @@ class Radix2Multiplier(width: Int, aSigned: Boolean = false, bSigned: Boolean = 
     io.p := comp.io.out
   } else {
     // ... both operands are unsigned
-    val (aW, opA) = (width, io.a)
-    val (bW, opB) = (width, io.b)
+    val (aW, opA) = (aWidth, io.a)
+    val (bW, opB) = (bWidth, io.b)
 
     // Create all the partial products
     val pprods = (0 until aW).map { i => VecInit(opB.asBools.map(_ & opA(i))).asUInt }
-
-    // Compute the positions of the sign-extension constants
-    val midLow  = scala.math.min(aW, bW) - 1
-    val midHigh = scala.math.max(aW, bW) - 1
-    val upper   = aW + bW - 1
 
     // Instantiate a compressor tree and input the bits
     val sig  = new MultSignature(aW, bW, false, false)
@@ -216,9 +204,216 @@ class Radix2Multiplier(width: Int, aSigned: Boolean = false, bSigned: Boolean = 
     (0 until sig.outW).foreach { col =>
       // Add the partial product bits
       val low  = lsCol(col, bW)
-      val high = low + dotCount(col, aW, bW, midLow, midHigh, upper)
+      val high = low + dotCount(col, aW, bW)
       (low until high).foreach { row =>
         ins(offset) := pprods(row)(col - row)
+        offset += 1
+      }
+    }
+    comp.io.in := ins.asUInt
+    io.p := comp.io.out
+  }
+}
+
+/** Radix 4 combinational multiplier
+ * 
+ * @param aWidth the width of the first operand
+ * @param bWidth the width of the second operand
+ * @param aSigned whether the first operand is signed (defaults to false)
+ * @param bSigned whether the second operand is signed (defaults to false)
+ * @param targetDevice a string indicating the target device (defaults to "",
+ *                     meaning ASIC)
+ * @param approx the targeted approximation style (defaults to no approximation)
+ * 
+ * Makes use of the compressor tree generator to add partial products.
+ */
+class Radix4Multiplier(aWidth: Int, bWidth: Int, aSigned: Boolean = false, bSigned: Boolean = false,
+                       targetDevice: String = "", approx: Approximation = NoApproximation())
+  extends Multiplier(aWidth, bWidth) {
+  /** Parallel recoding code bundle */
+  private[Radix4Multiplier] class Code extends Bundle {
+    val sgn = Bool()
+    val one = Bool()
+    val two = Bool()
+  }
+
+  /** Extend an unsigned operand to the next integral factor of two
+   * 
+   * @param opW the width of the original operand
+   * @param op the original operand
+   * @return a tuple of (width, operand) with the extended operand
+   */
+  private[Radix4Multiplier] def zext(opW: Int, op: UInt): (Int, UInt) =
+    if ((opW & 0x1) == 0) (opW+2, false.B ## false.B ## op) else (opW+1, false.B ## op)
+
+  /** Compute the number of partial product bits in a particular
+   * column of the tree
+   * 
+   * @param unsigned whether both operands are unsigned
+   * @param col the column of the tree
+   * @param aW the width of the first operand
+   * @param bW the width of the second operand
+   * @return the number of bits in column `col`
+   */
+  private[Radix4Multiplier] def dotCount(unsigned: Boolean, col: Int, aW: Int, bW: Int): Int =
+    (0 until (aW + 1) / 2).filter(row => (2 * row) <= col && col < (2 * row + bW + (if (unsigned) 1 else 0))).length
+
+  /** Compute the index of the least significant row from which to
+   * take partial product bits in a particular column of the tree
+   * 
+   * @param unsigned whether both operands are unsigned
+   * @param col the column of the tree
+   * @param bW the width of the second operand
+   * @return the least significant row index in column `col`
+   */
+  private[Radix4Multiplier] def lsCol(unsigned: Boolean, col: Int, bW: Int): Int =
+    if (col < (bW + (if (unsigned) 1 else 0))) 0 else (col - bW + (if (unsigned) 1 else 2)) / 2
+
+  // Depending on aSigned and bSigned, generate an unsigned or signed multiplier
+  if (aSigned || bSigned) {
+    // ... at least one operand is signed
+    val unsigned = false
+
+    // Extend the signed operand to the nearest factor of two and the
+    // unsigned operand by up to two bits
+    val (aW, opA) = if (aSigned) (if ((aWidth & 0x1) == 0) (aWidth, io.a) else (aWidth+1, io.a(aWidth-1) ## io.a)) else zext(aWidth, io.a)
+    val (bW, opB) = if (bSigned) (bWidth, io.b) else zext(bWidth, io.b)
+
+    // Generate the recoding factors
+    val codes = (0 until aW by 2).map { start =>
+      val v   = if (start == 0) WireDefault(opA(1, 0) ## false.B) else WireDefault(opA(start+1, start-1))
+      val res = Wire(new Code)
+      res.sgn := v(2)
+      res.one := v(1) ^ v(0)
+      res.two := (v(2) & !v(1) & !v(0)) | (!v(2) & v(1) & v(0))
+      res
+    }
+
+    // Create all the partial products
+    val pprods = codes.zipWithIndex.map { case (code, row) =>
+      val ones = VecInit(Seq.fill(bW+1)(code.one)).asUInt
+      val twos = VecInit(Seq.fill(bW+1)(code.two)).asUInt
+      val sgns = VecInit(Seq.fill(bW+1)(code.sgn)).asUInt
+      (((opB(bW-1) ## opB) & ones) | ((opB ## false.B) & twos)) ^ sgns
+    }
+
+    // Compute the positions of the breaks in the bit matrix
+    val nRows = (aW + 1) / 2
+    val upper = aW + bW - 1
+
+    // Instantiate a compressor tree and input the bits
+    val sig = new MultSignature(aW, bW, aSigned, bSigned, 4)
+    val comp = Module(CompressorTree(sig, targetDevice=targetDevice, approx=approx))
+    val ins = Wire(Vec(sig.count, Bool()))
+    var offset = 0
+    (0 until aW + bW).foreach { col =>
+      // Add the partial product bits
+      val low  = lsCol(unsigned, col, bW)
+      val high = low + dotCount(unsigned, col, aW, bW)
+      (low until high).foreach { row =>
+        ins(offset) := pprods(row)(col - 2 * row)
+        offset += 1
+      }
+
+      // Add the carry bits
+      if (col <= ((nRows - 1) * 2) && (col & 0x1) == 0) { // insert a carry bit
+        ins(offset) := codes(col / 2).sgn
+        offset += 1
+      }
+
+      // Add the sign bits
+      if (col == bW || col == (bW + 1)) { // insert non-negated sign
+        ins(offset) := pprods(0)(bW)
+        offset += 1
+      } else if (col == (bW + 2)) { // insert two negated signs
+        ins(offset) := !pprods(0)(bW)
+        offset += 1
+        if (aW > 2) {
+          ins(offset) := !pprods(1)(bW)
+          offset += 1
+        }
+      } else if ((bW + 3) < col && col <= upper && ((col - (bW + 3)) & 0x1) == 1) { // insert one negated sign
+        ins(offset) := !pprods((col - bW) / 2)(bW)
+        offset += 1
+      }
+
+      // Add the constant bits (bW + 3 sign bits)
+      if ((bW + 3) <= col && ((col - (bW + 3)) & 0x1) == 0) {
+        ins(offset) := true.B
+        offset += 1
+      }
+    }
+    comp.io.in := ins.asUInt
+    io.p := comp.io.out
+  } else {
+    // ... both operands are unsigned
+    val unsigned = true
+
+    // Extend the first operand to the next integral factor of two in length
+    val (aW, opA) = zext(aWidth, io.a)
+    val (bW, opB) = (bWidth, io.b)
+
+    // Generate the recoding factors
+    val codes = (0 until aW by 2).map { start =>
+      val v   = if (start == 0) WireDefault(opA(1, 0) ## false.B) else WireDefault(opA(start+1, start-1))
+      val res = Wire(new Code)
+      res.sgn := v(2)
+      res.one := v(1) ^ v(0)
+      res.two := (v(2) & !v(1) & !v(0)) | (!v(2) & v(1) & v(0))
+      res
+    }
+
+    // Create all the partial products
+    val pprods = codes.zipWithIndex.map { case (code, row) =>
+      val ones = VecInit(Seq.fill(bW+1)(code.one)).asUInt
+      val twos = VecInit(Seq.fill(bW+1)(code.two)).asUInt
+      val sgns = VecInit(Seq.fill(bW+1)(code.sgn)).asUInt
+      (((false.B ## opB) & ones) | (opB ## false.B) & twos) ^ sgns
+    }
+
+    // Compute the positions of the breaks in the bit matrix
+    val nRows = (aW + 1) / 2
+    val upper = aW + bW - 1
+
+    // Instantiate a compressor tree and input the bits
+    val sig = new MultSignature(aW, bW, aSigned, bSigned, 4)
+    val comp = Module(CompressorTree(sig, targetDevice=targetDevice, approx=approx))
+    val ins = dontTouch(Wire(Vec(sig.count, Bool())))
+    var offset = 0
+    (0 until aW + bW).foreach { col =>
+      // Add the partial product bits
+      val low  = lsCol(unsigned, col, bW)
+      val high = low + dotCount(unsigned, col, aW, bW)
+      (low until high).foreach { row =>
+        ins(offset) := pprods(row)(col - 2 * row)
+        offset += 1
+      }
+
+      // Add the carry bits
+      if (col < ((nRows - 1) * 2) && (col & 0x1) == 0) { // insert a carry bit
+        ins(offset) := codes(col / 2).sgn
+        offset += 1
+      }
+
+      // Add the sign bits
+      if (col == (bW + 1) || col == (bW + 2)) { // insert non-negated sign
+        ins(offset) := codes(0).sgn
+        offset += 1
+      } else if (col == (bW + 3)) { // insert two negated signs
+        ins(offset) := !codes(0).sgn
+        offset += 1
+        if (aW > 2) {
+          ins(offset) := !codes(1).sgn
+          offset += 1
+        }
+      } else if ((bW + 3) < col && col < upper && ((col - (bW + 3)) & 0x1) == 0) { // insert one negated sign
+        ins(offset) := !codes((col - (bW + 1)) / 2).sgn
+        offset += 1
+      }
+
+      // Add the constant bits (bW + 1 bit for shift + 3 sign bits)
+      if ((bW + 4) <= col && ((col - (bW + 4)) & 0x1) == 0) {
+        ins(offset) := true.B
         offset += 1
       }
     }
@@ -233,7 +428,7 @@ class Radix2Multiplier(width: Int, aSigned: Boolean = false, bSigned: Boolean = 
  * @param approxWidth the width of the approximate part (defaults to 0)
  * @param signed whether the multiplier is for signed numbers (defaults to false)
  */
-class RecursiveMultiplier(width: Int, approxWidth: Int = 0, val signed: Boolean = false) extends Multiplier(width) {
+class RecursiveMultiplier(width: Int, approxWidth: Int = 0, val signed: Boolean = false) extends Multiplier(width, width) {
   /** Exact unsigned recursive multiplier
    * 
    * @param width the width of the multiplier
@@ -241,7 +436,7 @@ class RecursiveMultiplier(width: Int, approxWidth: Int = 0, val signed: Boolean 
    * 
    * Implementation of Karatsuba's algorithm cf. Danysh and Swartzlander [1998]
    */
-  private[RecursiveMultiplier] class Mult(width: Int, msbW: Int) extends Multiplier(width) {
+  private[RecursiveMultiplier] class Mult(width: Int, msbW: Int) extends Multiplier(width, width) {
     /** Calculate absolute difference and sign of two operands
      * 
      * @param x0 the first operand
@@ -319,14 +514,14 @@ class RecursiveMultiplier(width: Int, approxWidth: Int = 0, val signed: Boolean 
  * @param width the width of the multiplier
  * @param signed whether the multiplier is for signed numbers (defaults to false)
  */
-class AlphabetSetMultiplier(width: Int, val signed: Boolean = false) extends Multiplier(width) {
+class AlphabetSetMultiplier(width: Int, val signed: Boolean = false) extends Multiplier(width, width) {
   /** Exact unsigned alphabet set multiplier
    * 
    * @param width the width of the multiplier (must be an integral factor of 4)
    * 
    * Implementation of the multiplier from Park et al. [2000]
    */
-  private[AlphabetSetMultiplier] class Mult(width: Int) extends Multiplier(width) {
+  private[AlphabetSetMultiplier] class Mult(width: Int) extends Multiplier(width, width) {
     val stages = width / 4
     require(stages * 4 == width, "width must be an integral factor of 4")
 

@@ -19,20 +19,22 @@ package object multiplication {
 
   /** Multiplier IO bundle
    * 
-   * @param w the width of the multiplier
+   * @param aW the width of the first operand
+   * @param bW the width of the second operand
    */
-  class MultiplierIO(w: Int) extends Bundle {
-    val a = Input(UInt(w.W))
-    val b = Input(UInt(w.W))
-    val p = Output(UInt((2*w).W))
+  class MultiplierIO(aW: Int, bW: Int) extends Bundle {
+    val a = Input(UInt(aW.W))
+    val b = Input(UInt(bW.W))
+    val p = Output(UInt((aW+bW).W))
   }
 
   /** Abstract multiplier module class
    * 
-   * @param width the width of the multiplier
+   * @param aWidth the width of the first operand
+   * @param bWidth the width of the second operand
    */
-  abstract class Multiplier(val width: Int) extends Module {
-    val io = IO(new MultiplierIO(width))
+  abstract class Multiplier(val aWidth: Int, val bWidth: Int) extends Module {
+    val io = IO(new MultiplierIO(aWidth, bWidth))
   }
 
   /** Sequential multiplier IO bundle
