@@ -97,9 +97,10 @@ All exact designs are based on descriptions in [Ercegovac and Lang](https://www.
 | Compressor 5:3                |                 | `Compressor5to3`                      | [approx.multiplication.Compressor5to3](./src/main/scala/approx/multiplication/Exact.scala#L56)            |
 | Compressor 7:3                |                 | `Compressor7to3`                      | [approx.multiplication.Compressor7to3](./src/main/scala/approx/multiplication/Exact.scala#L74)            |
 | 2x2-bit multiplier            |                 | `TwoxTwo`                             | [approx.multiplication.TwoxTwo](./src/main/scala/approx/multiplication/Exact.scala#L97)                   |
-| Radix-2 array multiplier      | Both            | `Radix2Multiplier`                    | [approx.multiplication.Radix2Multiplier](./src/main/scala/approx/multiplication/Exact.scala#L118)         |
-| Recursive multiplier          | Both            | `RecursiveMultiplier`                 | [approx.multiplication.RecursiveMultiplier](./src/main/scala/approx/multiplication/Exact.scala#L236)      |
-| Alphabet-set multiplier       | Both            | `AlphabetSetMultiplier`               | [approx.multiplication.AlphabetSetMultiplier](./src/main/scala/approx/multiplication/Exact.scala#L332)    |
+| Radix-2 array multiplier      | Both            | `Radix2Multiplier`                    | [approx.multiplication.Radix2Multiplier](./src/main/scala/approx/multiplication/Exact.scala#L119)         |
+| Radix-4 array multiplier      | Both            | `Radix4Multiplier`                    | [approx.multiplication.Radix4Multiplier](./src/main/scala/approx/multiplication/Exact.scala#L230)         |
+| Recursive multiplier          | Both            | `RecursiveMultiplier`                 | [approx.multiplication.RecursiveMultiplier](./src/main/scala/approx/multiplication/Exact.scala#L431)      |
+| Alphabet-set multiplier       | Both            | `AlphabetSetMultiplier`               | [approx.multiplication.AlphabetSetMultiplier](./src/main/scala/approx/multiplication/Exact.scala#L517)    |
 | Radix-2 sequential multiplier | Unsigned        | `Radix2SeqMultiplier`                 | [approx.multiplication.Radix2SeqMultiplier](./src/main/scala/approx/multiplication/ExactSequential.scala) |
 
 ## Approximate designs
