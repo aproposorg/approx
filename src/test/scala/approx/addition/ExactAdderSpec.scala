@@ -189,3 +189,43 @@ class CSASpec extends ExactAdderSpec {
     }
   }
 }
+
+class LowFanoutPPASpec extends ExactAdderSpec {
+  behavior of "Low-Fanout Parallel Prefix Adder"
+
+  it should "do simple additions" in {
+    test(new LowFanoutPPA(SimpleWidth))
+      .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+      simpleTest(dut)
+    }
+  }
+
+  for (width <- CommonWidths) {
+    it should s"do random $width-bit additions" in {
+      test(new LowFanoutPPA(width))
+        .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+        randomTest(dut)
+      }
+    }
+  }
+}
+
+class MinLevelsPPASpec extends ExactAdderSpec {
+  behavior of "Minimum-Levels Parallel Prefix Adder"
+
+  it should "do simple additions" in {
+    test(new MinLevelsPPA(SimpleWidth))
+      .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+      simpleTest(dut)
+    }
+  }
+
+  for (width <- CommonWidths) {
+    it should s"do random $width-bit additions" in {
+      test(new MinLevelsPPA(width))
+        .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+        randomTest(dut)
+      }
+    }
+  }
+}

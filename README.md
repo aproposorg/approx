@@ -34,16 +34,18 @@ The `approx.addition` library contains a vast number of approximate and exact ad
 
 All exact designs are based on descriptions in [Ercegovac and Lang](https://www.sciencedirect.com/book/9781558607989/digital-arithmetic)'s book on digital arithmetic. All designs are purely combinational.
 
-| Type                                    | Name        | Code location                                                                    |
-|-----------------------------------------|-------------|----------------------------------------------------------------------------------|
-| Half adder                              | `HalfAdder` | [approx.addition.HalfAdder](./src/main/scala/approx/addition/Exact.scala#L8)     |
-| Full adder                              | `FullAdder` | [approx.addition.FullAdder](./src/main/scala/approx/addition/Exact.scala#L14)    |
-| Ripple-carry adder                      | `RCA`       | [approx.addition.RCA](./src/main/scala/approx/addition/Exact.scala#L23)          |
-| Carry-lookahead adder                   | `CLA`       | [approx.addition.CLA](./src/main/scala/approx/addition/Exact.scala#L84)          |
-| Two-layer carry-lookahead adder         | `CLA2`      | [approx.addition.CLA2](./src/main/scala/approx/addition/Exact.scala#L118)        |
-| Carry-select adder                      | `CSA`       | [approx.addition.CSA](./src/main/scala/approx/addition/Exact.scala#L178)         |
-| Self-timed adder                        | `STA`       | [approx.addition.STA](./src/main/scala/approx/addition/ExactSelfTimed.scala#L13) |
-| Parallel carry-completion sensing adder | `CCA`       | [approx.addition.CCA](./src/main/scala/approx/addition/ExactSelfTimed.scala#L58) |
+| Type                                    | Name           | Code location                                                                     |
+|-----------------------------------------|----------------|-----------------------------------------------------------------------------------|
+| Half adder                              | `HalfAdder`    | [approx.addition.HalfAdder](./src/main/scala/approx/addition/Exact.scala#L8)      |
+| Full adder                              | `FullAdder`    | [approx.addition.FullAdder](./src/main/scala/approx/addition/Exact.scala#L14)     |
+| Ripple-carry adder                      | `RCA`          | [approx.addition.RCA](./src/main/scala/approx/addition/Exact.scala#L23)           |
+| Carry-lookahead adder                   | `CLA`          | [approx.addition.CLA](./src/main/scala/approx/addition/Exact.scala#L84)           |
+| Two-layer carry-lookahead adder         | `CLA2`         | [approx.addition.CLA2](./src/main/scala/approx/addition/Exact.scala#L118)         |
+| Carry-select adder                      | `CSA`          | [approx.addition.CSA](./src/main/scala/approx/addition/Exact.scala#L178)          |
+| Low fanout parallel prefix adder        | `LowFanoutPPA` | [approx.addition.LowFanoutPPA](./src/main/scala/approx/addition/Exact.scala#L298) |
+| Minimum levels parallel prefix adder    | `MinLevelsPPA` | [approx.addition.MinLevelsPPA](./src/main/scala/approx/addition/Exact.scala#L337) |
+| Self-timed adder                        | `STA`          | [approx.addition.STA](./src/main/scala/approx/addition/ExactSelfTimed.scala#L13)  |
+| Parallel carry-completion sensing adder | `CCA`          | [approx.addition.CCA](./src/main/scala/approx/addition/ExactSelfTimed.scala#L58)  |
 
 ## Approximate designs
 
@@ -52,6 +54,7 @@ All exact designs are based on descriptions in [Ercegovac and Lang](https://www.
 | Full adder                                              | `AXA1`, `AXA2`, `AXA3`    | [approx.addition.AXA](./src/main/scala/approx/addition/AXA.scala)                                  | [Yang et al.](https://ieeexplore.ieee.org/document/6720793)                              |
 | Full adder                                              | `AFA`                     | [approx.addition.AFA](./src/main/scala/approx/addition/ErrorResilient.scala#L9)                    | [Dutt et al.](https://dl.acm.org/doi/10.1145/3131274)                                    |
 | Full adder                                              | `InXA1`, `InXA2`, `InXA3` | [approx.addition.InXA](./src/main/scala/approx/addition/InXA.scala)                                | [Almurib et al.](https://ieeexplore.ieee.org/document/7459392)                           |
+| Full adder                                              | `SESA1`, `SESA2`, `SESA3` | [approx.addition.SESA](./src/main/scala/approx/addition/SESA.scala)                                | [Jha et al.](https://ieeexplore.ieee.org/document/10113797)                              |
 | Full adder                                              | `TCAA`                    | [approx.addition.TCAA](./src/main/scala/approx/addition/TCAA.scala)                                | [Yang and Thapliyal](https://ieeexplore.ieee.org/document/9154922)                       |
 | Full adder                                              | `TSAA`                    | [approx.addition.TSAA](./src/main/scala/approx/addition/TSAA.scala)                                | [Yang and Thapliyal](https://ieeexplore.ieee.org/document/9154922)                       |
 | Accuracy-configurable adder                             | `ACA`                     | [approx.addition.ACA](./src/main/scala/approx/addition/ACA.scala)                                  | [Kahng and Kang](https://dl.acm.org/doi/10.1145/2228360.2228509)                         |
