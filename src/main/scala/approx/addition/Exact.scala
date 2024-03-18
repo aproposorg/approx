@@ -217,47 +217,151 @@ class CSA(width: Int, val stages: Int) extends Adder(width) {
  * 
  * @param width the width of the adder
  * 
- * The 'fanout' architecture models the PPA from Ercegovac and Lang, Fig. 2.19, 
- * while the 'delay' architecture models the PPA from Fig. 2.20. The 'fanout' 
- * architecture is likely to have higher latency but lower area than the 
- * 'delay' architecture.
- * 
  * @todo Remove redundant extension bits in this design.
  */
 abstract class PPA(width: Int) extends Adder(width) {
-  /** Bundle of generate and alive bits */
-  private[addition] class GenAlivePair extends Bundle {
+  /** Bundle of generate and propagate bits */
+  private[addition] class GenPropPair extends Bundle {
     val g = Bool()
-    val a = Bool()
+    val p = Bool()
   }
-
-  /** Compute a full-dot operator
-   * 
-   * @param l the left `GenAlivePair` bundle
-   * @param r the right boolean
-   * @return a boolean prefix bit
-   */
-  private[addition] def fullDot(l: GenAlivePair, r: Bool): Bool = l.g | (l.a & r)
 
   /** Compute an empty-dot operator
    * 
-   * @param l a `GenAlivePair` bundle
-   * @param r a `GenAlivePair` bundle
-   * @return a combined `GenAlivePair` bundle from `l` and `r`
+   * @param l a `GenPropPair` bundle
+   * @param r a `GenPropPair` bundle
+   * @return a combined `GenPropPair` bundle from `l` and `r`
    */
-  private[addition] def emptyDot(l: GenAlivePair, r: GenAlivePair): GenAlivePair = {
-    val res = Wire(new GenAlivePair)
-    res.g := l.g | (l.a & r.g)
-    res.a := l.a & r.a
+  private[addition] def emptyDot(l: GenPropPair, r: GenPropPair): GenPropPair = {
+    val res = Wire(new GenPropPair)
+    res.g := l.g | (l.p & r.g)
+    res.p := l.p & r.p
     res
   }
 
-  /** Recursively build the parallel prefix tree
+  /** Perform carry propagation on a sequence of pre-computed `GenPropPair`s
    * 
-   * @param ins the inputs to the current level of the tree
-   * @param lvl the index of the current level of the tree
+   * @param ins the pre-computed `GenPropPair`s ready for carry propagation
+   * @param cin the carry-in to the tree
+   * @return a flattened carry signal
    */
-  private[addition] def tree(ins: Seq[Any], lvl: Int = 0): UInt
+  private[addition] def prop(ins: Seq[GenPropPair], cin: Bool): UInt = {
+    VecInit(cin +: ins.map(pr => (cin & pr.p) | pr.g)).asUInt
+  }
+
+  /** Generate a Brent-Kung tree recursively level-by-level
+   * 
+   * @param ins the input to this level of the tree
+   * @param lvl the index of this level of the tree
+   * @return the recursively generated prefixes
+   */
+  private[addition] def brentKung(ins: Seq[GenPropPair], lvl: Int = 0): Seq[GenPropPair] = {
+    if (lvl <= log2Up(ins.size) - 1) {
+      // If this is one of the first ceil(lg(len(ins))) levels, compute the 
+      // level normally
+      val skip = (1 << (lvl + 1)) - 1
+      val jump = 1 << lvl
+
+      // Compute this level
+      val outs = ins.take(skip) ++ (skip until ins.size).map { i =>
+        val j = i - skip
+        if ((j % (jump << 1)) == 0) emptyDot(ins(i), ins(i - jump)) else ins(i)
+      }
+
+      // Keep computing
+      brentKung(outs, lvl + 1)
+    } else {
+      // Otherwise, compute the level according to the opposite structure
+      val offs  = 2 * log2Up(ins.size) - 2 - lvl
+      val jump  = 1 << offs
+      val skipL = jump
+      val skipR = 1 << (offs + 1)
+
+      // Compute this level
+      val outs = ins.take(skipR) ++ (skipR until ins.size - skipL).map { i =>
+        val j = ins.size - skipL - 1 - i
+        if ((j % (jump << 1)) == 0) emptyDot(ins(i), ins(i - jump)) else ins(i)
+      } ++ ins.takeRight(skipL)
+
+      // If this is the 2*ceil(lg(len(ins)))-2th level, we are done
+      // otherwise, keep computing
+      if (offs == 0) outs else brentKung(outs, lvl + 1)
+    }
+  }
+
+  /** Generate a Kogge-Stone tree recursively level-by-level
+   * 
+   * @param ins the input to this level of the tree
+   * @param lvl the index of this level of the tree
+   * @return the recursively generated prefixes
+   */
+  private[addition] def koggeStone(ins: Seq[GenPropPair], lvl: Int = 0): Seq[GenPropPair] = {
+    // The skip value encodes two things: the start index and the difference 
+    // in index between two prefixes in a level
+    val skip = 1 << lvl
+    
+    // Compute this level
+    val outs = ins.take(skip) ++ (skip until ins.size).map(i => emptyDot(ins(i), ins(i - skip)))
+
+    // If this is the ceil(lg(len(ins)))th level, we are done
+    // otherwise, keep computing
+    if (skip >= ins.size) outs else koggeStone(outs, lvl + 1)
+  }
+
+  /** Generate a Sklansky tree recursively level-by-level
+   * 
+   * @param ins the input to this level of the tree
+   * @param lvl the index of this level of the tree
+   * @return the recursively generated prefixes
+   */
+  private[addition] def sklansky(ins: Seq[GenPropPair], lvl: Int = 0): Seq[GenPropPair] = {
+    // The skip value encodes two things: the start index and the difference 
+    // in index between two groups in a level
+    val skip    = 1 << lvl
+    val grpSize = 1 << (lvl + 1)
+
+    // Compute this level
+    val outs = ins.sliding(grpSize, grpSize).foldLeft(Seq.empty[GenPropPair]) { case (acc, grp) =>
+      acc ++ grp.take(skip) ++ (skip until grp.size).map { i => 
+        println(s"Inserting empty dot at index $i in level $lvl")
+        emptyDot(grp(i), grp(skip - 1))
+      }
+    }
+
+    // If this is the ceil(lg(len(ins)))th level, we are done
+    // otherwise, keep computing
+    if (skip >= ins.size) outs else sklansky(outs, lvl + 1)
+  }
+
+  /** Generate a Ladner-Fischer tree recursively level-by-level
+   * 
+   * @param ins the input to this level of the tree
+   * @param lvl the index of this level of the tree
+   * @return the recursively generated prefixes
+   */
+  private[addition] def ladnerFischer(ins: Seq[GenPropPair], lvl: Int = 0): Seq[GenPropPair] = {
+    if (lvl <= log2Up(ins.size) - 1) {
+      // If this is one of the first ceil(log2(len(ins))) levels, compute the 
+      // level normally
+      val skip    = 1 << lvl
+      val grpSize = 1 << (lvl + 1)
+
+      // Compute this level
+      val outs = ins.sliding(grpSize, grpSize).foldLeft(Seq.empty[GenPropPair]) { case (acc, grp) =>
+        acc ++ grp.take(skip) ++ (skip until grp.size).map { i =>
+          if ((i & 0x1) == 1) emptyDot(grp(i), grp(skip - 1)) else grp(i)
+        }
+      }
+
+      // Keep computing
+      ladnerFischer(outs, lvl + 1)
+    } else {
+      // Otherwise, compute the level according to the opposite structure
+      ins.take(2) ++ (2 until ins.size).map { i =>
+        if ((i & 0x1) == 0) emptyDot(ins(i), ins(i-1)) else ins(i)
+      }
+    }
+  }
 
   // The architecture generation part of the design only works for power-of-2 
   // bit-width, so extend the operands thereafter
@@ -271,85 +375,51 @@ abstract class PPA(width: Int) extends Adder(width) {
 
   // Compute the generate, alive, and propagate signals from the extended inputs
   val g = inA & inB
-  val a = inA | inB
   val p = inA ^ inB
-
-  // Compute the inputs to the parallel prefix tree
-  val inLevel = (io.cin +: (0 until inWidth).map { i =>
-    val res = Wire(new GenAlivePair)
-    res.g := g(i)
-    res.a := a(i)
+  val genProps = (0 until inWidth).map { i =>
+    val res = Wire(new GenPropPair)
+    res.g  := g(i)
+    res.p  := p(i)
     res
-  })
-
-  // Inheriting architectures must define the output from the parallel prefix 
-  // tree for it to be used in sum and carry-out generation
-  val outLevel = tree(inLevel)
-  io.s    := p ^ outLevel
-  io.cout := outLevel(width)
-}
-
-/** Exact parallel prefix adder with maximum fanout of three
- * 
- * @param width the width of the adder
- * 
- * Models the PPA from Ercegovac and Lang, Fig. 2.19.
- */
-class LowFanoutPPA(width: Int) extends PPA(width) {
-  private[addition] def tree(ins: Seq[Any], lvl: Int = 0): UInt = {
-    require(ins.forall(in => in.isInstanceOf[GenAlivePair] || in.isInstanceOf[Bool]))
-
-    // Compute the inputs to the next level
-    val next = if (lvl == 0) {
-      // Treat the first level differently from the remaining ones
-      (0 until ins.size).map { i =>
-        if ((i & 0x1) == 1) (ins(i), ins(i-1)) match {
-          case (l: GenAlivePair, r: GenAlivePair) => emptyDot(l, r)
-          case (l: GenAlivePair, r: Bool) => fullDot(l, r)
-          case _ => // should never occur
-        } else ins(i)
-      }
-    } else {
-      // Two bit positions share the same right element
-      val lower = lvl << 1
-      val upper = scala.math.min(lower + 2, ins.size)
-      val r = ins(lower - 1)
-      ins.take(lower) ++ (lower until upper).map { i =>
-        (ins(i), r) match {
-          case (l: GenAlivePair, r: Bool) => fullDot(l, r)
-          case _ => // should never occur
-        }
-      } ++ ins.drop(upper)
-    }
-
-    // Finalize this level or the whole tree
-    if (next.exists(_.isInstanceOf[GenAlivePair])) tree(next, lvl + 1)
-    else VecInit(next.asInstanceOf[Seq[Bool]]).asUInt
   }
 }
 
-/** Exact parallel prefix adder with minimum number of levels
+/** Exact parallel prefix adder with Brent-Kung architecture
  * 
  * @param width the width of the adder
- * 
- * Models the PPA from Ercegovac and Lang, Fig. 2.20.
  */
-class MinLevelsPPA(width: Int) extends PPA(width) {
-  private[addition] def tree(ins: Seq[Any], lvl: Int = 0): UInt = {
-    require(ins.forall(in => in.isInstanceOf[GenAlivePair] || in.isInstanceOf[Bool]))
+class BrentKungPPA(width: Int) extends PPA(width) {
+  val cs = prop(brentKung(genProps), io.cin)
+  io.s    := p ^ cs(width-1, 0)
+  io.cout := cs(width)
+}
 
-    // Compute the inputs to the next level or the final result
-    val skip = 1 << lvl
-    val next = ins.take(skip) ++ (skip until ins.size).map { i =>
-      (ins(i), ins(i - skip)) match {
-        case (l: GenAlivePair, r: GenAlivePair) => emptyDot(l, r)
-        case (l: GenAlivePair, r: Bool) => fullDot(l, r)
-        case _ => // should never occur
-      }
-    }
+/** Exact parallel prefix adder with Kogge-Stone architecture
+ * 
+ * @param width the width of the adder
+ */
+class KoggeStonePPA(width: Int) extends PPA(width) {
+  val cs = prop(koggeStone(genProps), io.cin)
+  io.s    := p ^ cs(width-1, 0)
+  io.cout := cs(width)
+}
 
-    // Finalize this level or the whole tree
-    if (next.exists(_.isInstanceOf[GenAlivePair])) tree(next, lvl + 1)
-    else VecInit(next.asInstanceOf[Seq[Bool]]).asUInt
-  }
+/** Exact parallel prefix adder with Sklansky architecture
+ * 
+ * @param width the width of the adder
+ */
+class SklanskyPPA(width: Int) extends PPA(width) {
+  val cs = prop(sklansky(genProps), io.cin)
+  io.s    := p ^ cs(width-1, 0)
+  io.cout := cs(width)
+}
+
+/** Exact parallel prefix adder with Ladner-Fischer architecture
+ * 
+ * @param width the width of the adder
+ */
+class LadnerFischerPPA(width: Int) extends PPA(width) {
+  val cs = prop(ladnerFischer(genProps), io.cin)
+  io.s    := p ^ cs(width-1, 0)
+  io.cout := cs(width)
 }

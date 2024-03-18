@@ -190,11 +190,11 @@ class CSASpec extends ExactAdderSpec {
   }
 }
 
-class LowFanoutPPASpec extends ExactAdderSpec {
-  behavior of "Low-Fanout Parallel Prefix Adder"
+class BrentKungPPASpec extends ExactAdderSpec {
+  behavior of "Brent-Kung Parallel Prefix Adder"
 
   it should "do simple additions" in {
-    test(new LowFanoutPPA(SimpleWidth))
+    test(new BrentKungPPA(SimpleWidth))
       .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
       simpleTest(dut)
     }
@@ -202,7 +202,7 @@ class LowFanoutPPASpec extends ExactAdderSpec {
 
   for (width <- CommonWidths) {
     it should s"do random $width-bit additions" in {
-      test(new LowFanoutPPA(width))
+      test(new BrentKungPPA(width))
         .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
         randomTest(dut)
       }
@@ -210,11 +210,11 @@ class LowFanoutPPASpec extends ExactAdderSpec {
   }
 }
 
-class MinLevelsPPASpec extends ExactAdderSpec {
-  behavior of "Minimum-Levels Parallel Prefix Adder"
+class KoggeStonePPASpec extends ExactAdderSpec {
+  behavior of "Kogge-Stone Parallel Prefix Adder"
 
   it should "do simple additions" in {
-    test(new MinLevelsPPA(SimpleWidth))
+    test(new KoggeStonePPA(SimpleWidth))
       .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
       simpleTest(dut)
     }
@@ -222,7 +222,47 @@ class MinLevelsPPASpec extends ExactAdderSpec {
 
   for (width <- CommonWidths) {
     it should s"do random $width-bit additions" in {
-      test(new MinLevelsPPA(width))
+      test(new KoggeStonePPA(width))
+        .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+        randomTest(dut)
+      }
+    }
+  }
+}
+
+class SklanskyPPASpec extends ExactAdderSpec {
+  behavior of "Sklansky Parallel Prefix Adder"
+
+  it should "do simple additions" in {
+    test(new SklanskyPPA(SimpleWidth))
+      .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+      simpleTest(dut)
+    }
+  }
+
+  for (width <- CommonWidths) {
+    it should s"do random $width-bit additions" in {
+      test(new SklanskyPPA(width))
+        .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+        randomTest(dut)
+      }
+    }
+  }
+}
+
+class LadnerFischerPPASpec extends ExactAdderSpec {
+  behavior of "Ladner-Fischer Parallel Prefix Adder"
+
+  it should "do simple additions" in {
+    test(new LadnerFischerPPA(SimpleWidth))
+      .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+      simpleTest(dut)
+    }
+  }
+
+  for (width <- CommonWidths) {
+    it should s"do random $width-bit additions" in {
+      test(new LadnerFischerPPA(width))
         .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
         randomTest(dut)
       }
