@@ -676,6 +676,8 @@ private[comptree] object Counters {
    * - (7 : 1,1,1]
    * - (8 : 1,1,1] (approximate)
    * 
+   * @todo Extend with the (10 : 4,2] counter from Hossfeld et al. [2024]
+   * 
    * @todo Extend to support approximate compound counters.
    */
   object Versal extends Library {

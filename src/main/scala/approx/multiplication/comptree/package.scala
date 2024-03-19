@@ -6,9 +6,12 @@ import scala.collection.mutable
 
 package object comptree {
 
-  /** Compressor approximation styles */
+  /** Compressor approximation styles
+   * 
+   * Remember to update domination filtering below in case new approximations 
+   * are added to the library.
+   */
   abstract class Approximation
-  case class NoApproximation() extends Approximation
   case class RowTruncation(rows: Int) extends Approximation
   case class ColumnTruncation(width: Int) extends Approximation
   case class Miscounting(width: Int) extends Approximation
@@ -63,7 +66,7 @@ package object comptree {
    * @param bSigned whether the second operand is signed (defaults to false)
    * @param radix the radix of the multiplier (one of 2 or 4, defaults to 2)
    */
-  class MultSignature(val aW: Int, val bW: Int, aSigned: Boolean = false, bSigned: Boolean = false, radix: Int = 2)
+  class MultSignature(val aW: Int, val bW: Int, aSigned: Boolean = false, bSigned: Boolean = false, val radix: Int = 2)
     extends Signature(MultSignature.genSignature(!(aSigned || bSigned), aW, bW, radix))
   private[comptree] object MultSignature {
     /** Generate the signature for a generic (un-)signed by (un-)signed
@@ -165,13 +168,13 @@ package object comptree {
    * @param outW the targeted output width of the compressor tree
    * @param targetDevice the device to target generation for (if left empty, picks ASIC,
    *                     can also be one of "7series", "ultrascale", "versal", "intel")
-   * @param approx the type of approximation to use in the compressor tree
    * @param mtrc which fitness metric to use for selecting counters
+   * @param approx the styles of approximation to use in the compressor tree
    * 
    * Used to control generation compressor tree generation, including
    * the selection of counters, the compression goal, and the final adder.
    */
-  private[comptree] class Context(val outW: Int, targetDevice: String, val approx: Approximation, mtrc: Char) {
+  private[comptree] class Context(val outW: Int, targetDevice: String, mtrc: Char, approx: Seq[Approximation]) {
     private val _device: String = targetDevice.toLowerCase()
     private val _mtrc: Char = mtrc.toLower
     val goal: Int = _device match {
@@ -189,6 +192,21 @@ package object comptree {
       case "versal" => Counters.Versal
       case "intel" => Counters.Intel
       case _ => Counters.ASIC
+    }
+    val approximations = {
+      // Remove dominated column-wise approximations
+      val colTruncOpt = approx.collect { case ct: ColumnTruncation => ct }.sortBy(_.width).lastOption
+      val (orCompOpt, misCntOpt) = colTruncOpt match {
+        case Some(ct) =>
+          (approx.collect { case or : ORCompression if or.width  > ct.width => or  }.sortBy(_.width).lastOption,
+           approx.collect { case cnt: Miscounting   if cnt.width > ct.width => cnt }.sortBy(_.width).lastOption)
+        case _ =>
+          (approx.collect { case or : ORCompression => or  }.sortBy(_.width).lastOption,
+           approx.collect { case cnt: Miscounting   => cnt }.sortBy(_.width).lastOption)
+      }
+      // Remove dominated row-wise approximations
+      val rowTruncOpt = approx.collect { case rt: RowTruncation => rt }.sortBy(_.rows).lastOption
+      Seq(colTruncOpt, orCompOpt, misCntOpt, rowTruncOpt).collect { case Some(prx) => prx }
     }
   }
 

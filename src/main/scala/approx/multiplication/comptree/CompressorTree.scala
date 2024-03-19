@@ -16,12 +16,12 @@ object CompressorTree {
    *             input signature)
    * @param targetDevice a string indicating the target device
    *                     (defaults to "", meaning ASIC)
-   * @param approx the targeted approximation style (defaults to no approximation)
    * @param mtrc which metric to use for selecting counters (defaults to efficiency)
+   * @param approx the targeted approximation styles (defaults to no approximation)
    */
   def apply[T <: Signature](sig: T, outW: Int = -1, targetDevice: String = "",
-                            approx: Approximation = NoApproximation(), mtrc: Char = 'e'): CompressorTree =
-    new CompressorTree(sig, new Context(outW, targetDevice, approx, mtrc))
+                            mtrc: Char = 'e', approx: Seq[Approximation] = Seq.empty[Approximation]): CompressorTree =
+    new CompressorTree(sig, new Context(outW, targetDevice, mtrc, approx))
 }
 
 /** Compressor tree class
@@ -33,8 +33,6 @@ object CompressorTree {
  * on the companion object for a simplified interface to this generator.
  * 
  * @todo Update to make use of the state in LUT placement and pipelining.
- * 
- * @todo Enable the use of multiple approximations at once.
  */
 private[comptree] class CompressorTree(val sig: Signature, context: Context) extends Module with FlattenInstance {
   val state = new State()
@@ -46,62 +44,75 @@ private[comptree] class CompressorTree(val sig: Signature, context: Context) ext
     val out = Output(UInt(outW.W))
   })
 
+  // Select the appropriate set of counters and sort them by the desired 
+  // fitness metric
+  val isApprox = context.approximations.exists(_.isInstanceOf[Miscounting])
+  val cntrs = (if (isApprox) context.counters.approxCounters else context.counters.exactCounters)
+    .sortBy { cntr  => context.metric match {
+    case FitnessMetric.Efficiency => cntr.efficiency
+    case FitnessMetric.Strength   => cntr.strength
+  }}.reverse
+
   // Generate and connect the inputs to a bit matrix
   val inMtrx = buildMatrix(sig, io.in)
 
   // Iteratively compress the bit matrix till the compression goal is reached
   val mtrcs = mutable.ArrayBuffer(inMtrx)
-  while (!mtrcs.last.meetsGoal(context.goal)) {
-    mtrcs += compress(mtrcs.last)
-  }
+  while (!mtrcs.last.meetsGoal(context.goal)) mtrcs += compress(mtrcs.last, cntrs)
 
   // Perform a final summation and output the result
   io.out := finalSummation(mtrcs.last)
 
   /** Construct a bit matrix and connect the given bits to it
    * 
-   * @param sig the signature of the matrix
+   * @param signature the signature of the matrix
    * @param bits the flattened bit vector to connect to the matrix
    * @return a bit matrix with the given signature and the given bits connected
    */
-  private[CompressorTree] def buildMatrix(sig: Signature, bits: UInt): BitMatrix = {
-    require(sig.count == bits.getWidth)
+  private[CompressorTree] def buildMatrix(signature: Signature, bits: UInt): BitMatrix = {
+    require(signature.count == bits.getWidth)
     val res = new BitMatrix()
 
     // If the compressor tree implements column truncation or OR compression,
     // skip or compute the input bits for the columns in question here
     var ind = 0
-    val startLog2Weight = context.approx match {
-      case ColumnTruncation(width) =>
-        ind += (0 until width).map(i => sig(i)).sum
-        width
-      case ORCompression(width) =>
-        for (log2Weight <- 0 until width) {
-          res.insertBit(io.in(ind + sig(log2Weight) - 1, ind).orR(), log2Weight)
-          ind += sig(log2Weight)
+    val startLog2Weight = {
+      // First apply column truncation
+      val ctWidth = context.approximations.collect { case ct: ColumnTruncation =>
+        ind += (0 until ct.width).map(i => signature(i)).sum
+        ct.width
+      }.headOption.getOrElse(0)
+
+      // Then apply OR compression
+      val orWidth = context.approximations.collect { case or: ORCompression =>
+        for (log2Weight <- ctWidth until or.width) {
+          res.insertBit(bits(ind + signature(log2Weight) - 1, ind).orR(), log2Weight)
+          ind += signature(log2Weight)
         }
-        width
-      case _ => 0
+        or.width
+      }.headOption.getOrElse(0)
+
+      // Return the maximum index
+      scala.math.max(ctWidth, orWidth)
     }
 
     // If the compressor tree implements row truncation, generate the signature
     // of the bits to truncate here
-    val truncSig = context.approx match {
-      case RowTruncation(rows) => sig match {
+    val truncSig = context.approximations.collect { case rt: RowTruncation =>
+      signature match {
         case multSig: MultSignature =>
-          val tSig = new MultSignature(rows, multSig.bW)
+          val tSig = new MultSignature(rt.rows, multSig.bW, radix=multSig.radix)
           new Signature(tSig.signature :++ Array.fill(multSig.length - tSig.length)(0))
         case _ =>
-          throw new Exception("can only generate compressor tree for multiplier signatures")
+          throw new Exception("can only apply row truncation to multiplier signatures")
       }
-      case _ => new Signature(Array.fill(sig.length)(0))
-    }
+    }.headOption.getOrElse(new Signature(Array.fill(sig.length)(0)))
 
     // Insert the remaining bits in the compressor tree
-    for (log2Weight <- startLog2Weight until sig.length) {
-      val startRow = truncSig(log2Weight)
-      for (row <- startRow until sig(log2Weight)) {
-        res.insertBit(io.in(ind), log2Weight)
+    for (log2Weight <- startLog2Weight until signature.length) {
+      // Skip some rows given by the truncated signature
+      for (row <- truncSig(log2Weight) until signature(log2Weight)) {
+        res.insertBit(bits(ind), log2Weight)
         ind += 1
       }
     }
@@ -112,27 +123,17 @@ private[comptree] class CompressorTree(val sig: Signature, context: Context) ext
    * compression goal is met
    * 
    * @param bits the input bit matrix
+   * @param cntrs the appropriate available counters
    * @return the bit matrix after compression, before final summation
    */
-  private[CompressorTree] def compress(bits: BitMatrix): BitMatrix = {
+  private[CompressorTree] def compress(bits: BitMatrix, cntrs: Seq[Counter]): BitMatrix = {
     state.addStage()
 
-    // First, select the appropriate set of counters and sort them by the
-    // desired fitness metric
-    val sortedCntrs = (context.approx match {
-      case Miscounting(_) => context.counters.approxCounters
-      case _              => context.counters.exactCounters
-    }).sortBy { cntr  => context.metric match {
-      case FitnessMetric.Efficiency => cntr.efficiency
-      case FitnessMetric.Strength   => cntr.strength
-    }}.reverse
-
-    // Next, construct a compression stage
-    /** @todo Evaluate the condition in this while loop... */
+    // Place a new counter in the bit matrix while possible
     val res = new BitMatrix()
-    while (!bits.meetsGoal(context.goal)) {
-      placeLargestCntr(sortedCntrs, bits, res)
-    }
+    while (!bits.meetsGoal(context.goal)) placeLargestCntr(cntrs, bits, res)
+
+    // Transfer any remaining bits to the next stage
     transferBits(bits, res)
     res
   }
@@ -187,10 +188,10 @@ private[comptree] class CompressorTree(val sig: Signature, context: Context) ext
               }
             }
 
-          case None => throw new Exception("cannot place a counter in input bit matrix")
+          case _ => throw new Exception("cannot place a counter in input bit matrix")
         }
 
-      case None => throw new Exception("input bit matrix does not need compression")
+      case _ => throw new Exception("input bit matrix does not need compression")
     }
   }
 
@@ -217,13 +218,12 @@ private[comptree] class CompressorTree(val sig: Signature, context: Context) ext
       inCnt >= 2 && (inCnt + outCnt - 1 <= context.goal)
     } else {
       // Otherwise, take approximate counters into account too
-      context.approx match {
-        case Miscounting(width) if isApproximate(cntr) =>
-          inSig.zipWithIndex.forall { case (cnt, col) =>
-            (lsCol + col) < width && inBits.colCount(lsCol + col) >= cnt }
-        case _ =>
-          inSig.zipWithIndex.forall { case (cnt, col) =>
-            inBits.colCount(lsCol + col) >= cnt }
+      context.approximations.collect { case mscnt: Miscounting if isApproximate(cntr) =>
+        inSig.zipWithIndex.forall { case (cnt, col) =>
+          (lsCol + col) < mscnt.width && inBits.colCount(lsCol + col) >= cnt }
+      }.headOption.getOrElse {
+        inSig.zipWithIndex.forall { case (cnt, col) =>
+          inBits.colCount(lsCol + col) >= cnt }
       }
     }
   }
@@ -262,6 +262,8 @@ private[comptree] class CompressorTree(val sig: Signature, context: Context) ext
    * 
    * For now, this implementation relies on the synthesis tools to remove
    * gates from constant-low bit positions.
+   * 
+   * @todo Implement ternary and quaternary adders for FPGAs.
    */
   private[CompressorTree] def finalSummation(bits: BitMatrix): UInt = {
     require((0 until outW).forall(i => bits.colCount(i) <= context.goal))

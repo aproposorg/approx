@@ -112,12 +112,12 @@ class TwoXTwo extends TwoXTwoMult {
  * @param bSigned whether the second operand is signed (defaults to false)
  * @param targetDevice a string indicating the target device (defaults to "",
  *                     meaning ASIC)
- * @param approx the targeted approximation style (defaults to no approximation)
+ * @param approx the targeted approximation styles (defaults to no approximation)
  * 
  * Makes use of the compressor tree generator to add partial products.
  */
 class Radix2Multiplier(aWidth: Int, bWidth: Int, aSigned: Boolean = false, bSigned: Boolean = false,
-                       targetDevice: String = "", approx: Approximation = NoApproximation())
+                       targetDevice: String = "", approx: Seq[Approximation] = Seq.empty[Approximation])
   extends Multiplier(aWidth, bWidth) {
   /** Compute the number of partial product bits in a particular
    * column of the tree
@@ -223,12 +223,12 @@ class Radix2Multiplier(aWidth: Int, bWidth: Int, aSigned: Boolean = false, bSign
  * @param bSigned whether the second operand is signed (defaults to false)
  * @param targetDevice a string indicating the target device (defaults to "",
  *                     meaning ASIC)
- * @param approx the targeted approximation style (defaults to no approximation)
+ * @param approx the targeted approximation styles (defaults to no approximation)
  * 
  * Makes use of the compressor tree generator to add partial products.
  */
 class Radix4Multiplier(aWidth: Int, bWidth: Int, aSigned: Boolean = false, bSigned: Boolean = false,
-                       targetDevice: String = "", approx: Approximation = NoApproximation())
+                       targetDevice: String = "", approx: Seq[Approximation] = Seq.empty[Approximation])
   extends Multiplier(aWidth, bWidth) {
   /** Parallel recoding code bundle */
   private[Radix4Multiplier] class Code extends Bundle {

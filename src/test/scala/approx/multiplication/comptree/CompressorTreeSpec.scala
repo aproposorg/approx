@@ -24,7 +24,8 @@ trait CompressorTreeSpec extends AnyFlatSpec with ChiselScalatestTester with Mat
     new StringSignature("128,128"),
     new StringSignature("256,256"),
     new StringSignature("512,512"),
-    new MultSignature(16, 16)
+    new MultSignature(16, 16),
+    new MultSignature(16, 16, true, true, 4)
   ) ++ (0 until 5).map { _ =>
     new Signature(Array.fill(rng.between(1, 33)) { rng.between(1, 33) })
   }
@@ -166,23 +167,34 @@ class ASICTreeSpec extends CompressorTreeSpec {
       }
     }
     it should s"generate with signature $sig and ColumnTruncation(${sig.length/2})" in {
-      test(CompressorTree(sig, targetDevice=targetDevice, approx=ColumnTruncation(sig.length/2))) { dut => }
+      getVerilogString(CompressorTree(sig, targetDevice=targetDevice, approx=Seq(ColumnTruncation(sig.length/2))))
     }
     it should s"generate with signature $sig and Miscounting(${sig.length/2})" in {
-      test(CompressorTree(sig, targetDevice=targetDevice, approx=Miscounting(sig.length/2))) { dut => }
+      getVerilogString(CompressorTree(sig, targetDevice=targetDevice, approx=Seq(Miscounting(sig.length/2))))
     }
     it should s"generate with signature $sig and ORCompression(${sig.length/2})" in {
-      test(CompressorTree(sig, targetDevice=targetDevice, approx=ORCompression(sig.length/2))) { dut => }
+      getVerilogString(CompressorTree(sig, targetDevice=targetDevice, approx=Seq(ORCompression(sig.length/2))))
     }
     sig match {
       case _: MultSignature =>
         it should s"generate with signature $sig and RowTruncation(4)" in {
-          test(CompressorTree(sig, targetDevice=targetDevice, approx=RowTruncation(4))) { dut => }
+          getVerilogString(CompressorTree(sig, targetDevice=targetDevice, approx=Seq(RowTruncation(4))))
         }
       case _ =>
         it should s"fail to generate with signature $sig and RowTruncation(4)" in {
-          an [Exception] should be thrownBy(getVerilogString(CompressorTree(sig, targetDevice=targetDevice, approx=RowTruncation(4))))
+          an [Exception] should be thrownBy(getVerilogString(CompressorTree(sig, targetDevice=targetDevice, approx=Seq(RowTruncation(4)))))
         }
+    }
+
+    /** Test simple generation of compressors with multiple  */
+    val approxs = (sig match {
+      case _: MultSignature => Seq(RowTruncation(2))
+      case _ => Seq()
+    }) ++ Seq(ColumnTruncation(sig.length/8), Miscounting(sig.length/2), ORCompression(sig.length/4))
+    for (pair <- approxs.flatMap(one => approxs.filter(_ != one).map(two => Seq(one, two)))) {
+      it should s"generate with signature $sig and approximations ${pair.mkString("[", ", ", "]")}" in {
+        getVerilogString(CompressorTree(sig, targetDevice=targetDevice, approx=pair))
+      }
     }
 
     /** Test with some simple edge case inputs */
@@ -211,8 +223,8 @@ class SevenSeriesTreeSpec extends CompressorTreeSpec {
 
   for (sig <- Signatures) {
     /** Test simple generation of compressors */
-    it should s"generate signature $sig" in {
-      test(CompressorTree(sig, targetDevice=targetDevice)) { dut => }
+    it should s"generate with signature $sig" in {
+      getVerilogString(CompressorTree(sig, targetDevice=targetDevice))
     }
   }
 }
@@ -226,7 +238,7 @@ class VersalTreeSpec extends CompressorTreeSpec {
   for (sig <- Signatures) {
     /** Test simple generation of compressors */
     it should s"generate with signature $sig" in {
-      test(CompressorTree(sig, targetDevice=targetDevice)) { dut => }
+      getVerilogString(CompressorTree(sig, targetDevice=targetDevice))
     }
   }
 }
@@ -238,7 +250,7 @@ class IntelTreeSpec extends CompressorTreeSpec {
   for (sig <- Signatures) {
     /** Test simple generation of compressors */
     it should s"generate with signature $sig" in {
-      test(CompressorTree(sig, targetDevice=targetDevice)) { dut => }
+      getVerilogString(CompressorTree(sig, targetDevice=targetDevice))
     }
 
     /** Test with some simple edge case inputs */

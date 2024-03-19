@@ -32,7 +32,7 @@ The `approx.addition` library contains a vast number of approximate and exact ad
 
 ## Exact designs
 
-All exact designs are based on descriptions in [Ercegovac and Lang](https://www.sciencedirect.com/book/9781558607989/digital-arithmetic)'s book on digital arithmetic. All designs are purely combinational.
+All exact designs are based on descriptions in [Ercegovac and Lang](https://www.sciencedirect.com/book/9781558607989/digital-arithmetic)'s book on digital arithmetic.
 
 | Type                                    | Name           | Code location                                                                     |
 |-----------------------------------------|----------------|-----------------------------------------------------------------------------------|
@@ -42,8 +42,7 @@ All exact designs are based on descriptions in [Ercegovac and Lang](https://www.
 | Carry-lookahead adder                   | `CLA`          | [approx.addition.CLA](./src/main/scala/approx/addition/Exact.scala#L84)           |
 | Two-layer carry-lookahead adder         | `CLA2`         | [approx.addition.CLA2](./src/main/scala/approx/addition/Exact.scala#L118)         |
 | Carry-select adder                      | `CSA`          | [approx.addition.CSA](./src/main/scala/approx/addition/Exact.scala#L178)          |
-| Low fanout parallel prefix adder        | `LowFanoutPPA` | [approx.addition.LowFanoutPPA](./src/main/scala/approx/addition/Exact.scala#L298) |
-| Minimum levels parallel prefix adder    | `MinLevelsPPA` | [approx.addition.MinLevelsPPA](./src/main/scala/approx/addition/Exact.scala#L337) |
+| Parallel prefix adder                   | `PPA`          | [approx.addition.PPA](./src/main/scala/approx/addition/Exact.scala#L222)          |
 | Self-timed adder                        | `STA`          | [approx.addition.STA](./src/main/scala/approx/addition/ExactSelfTimed.scala#L13)  |
 | Parallel carry-completion sensing adder | `CCA`          | [approx.addition.CCA](./src/main/scala/approx/addition/ExactSelfTimed.scala#L58)  |
 
@@ -58,6 +57,7 @@ All exact designs are based on descriptions in [Ercegovac and Lang](https://www.
 | Full adder                                              | `TCAA`                    | [approx.addition.TCAA](./src/main/scala/approx/addition/TCAA.scala)                                | [Yang and Thapliyal](https://ieeexplore.ieee.org/document/9154922)                       |
 | Full adder                                              | `TSAA`                    | [approx.addition.TSAA](./src/main/scala/approx/addition/TSAA.scala)                                | [Yang and Thapliyal](https://ieeexplore.ieee.org/document/9154922)                       |
 | Accuracy-configurable adder                             | `ACA`                     | [approx.addition.ACA](./src/main/scala/approx/addition/ACA.scala)                                  | [Kahng and Kang](https://dl.acm.org/doi/10.1145/2228360.2228509)                         |
+| Approximate parallel prefix adder                       | `AxPPA`                   | [approx.addition.AxPPA](./src/main/scala/approx/addition/AxPPA.scala)                              | [da Rosa et al.](https://ieeexplore.ieee.org/document/9956923)                           |
 | Carry cut-back adder                                    | `CCBA`                    | [approx.addition.CCBA](./src/main/scala/approx/addition/CCBA.scala)                                | [Camus et al.](https://dl.acm.org/doi/10.1145/2897937.2897964)                           |
 | Carry estimating simultaneous adder                     | `CESA_PERL`               | [approx.addition.CESA_PERL](./src/main/scala/approx/addition/CESA_PERL.scala)                      | [Bhattacharjya et al.](https://dl.acm.org/doi/10.1145/3386263.3406928)                   |
 | Dual-mode ripple-carry adder                            | `DualModeRCA`             | [approx.addition.DualModeRCA](./src/main/scala/approx/addition/DualMode.scala#L43)                 | [Raha et al.](https://ieeexplore.ieee.org/document/7106512)                              |
@@ -86,11 +86,11 @@ Beware that some approximate adders (e.g., `DualModeRCA`, `GeAr`) do not extend 
 ***
 # Multipliers
 
-Like above, the `approx.multiplication` library contains several approximate and exact multiplier designs that are also parameterized. The list below specifies which designs are included currently. In addition to these, the tool also includes a generic compressor tree generator for ASIC, Xilinx 7-Series/UltraScale or Versal FPGA (supported by the primitives in [approx.util.Xilinx](./src/main/scala/approx/util/Xilinx.scala)), and Intel FPGA flows. The generator supports fully exact compression as well as approximation by (column) truncation and _miscounting_ (i.e., inexact compression).
+Like above, the `approx.multiplication` library contains several approximate and exact multiplier designs that are also parameterized. The list below specifies which designs are included currently. In addition to these, the tool also includes a generic compressor tree generator for ASIC, Xilinx 7-Series/UltraScale or Versal FPGA (supported by the primitives in [approx.util.Xilinx](./src/main/scala/approx/util/Xilinx.scala)), and Intel FPGA flows. The generator supports fully exact compression as well as approximation by column or row truncation, OR-based column compression, and _miscounting_ (i.e., inexact compression). Multiple of these approximations can also be applied concurrently.
 
 ## Exact designs
 
-All exact designs are based on descriptions in [Ercegovac and Lang](https://www.sciencedirect.com/book/9781558607989/digital-arithmetic)'s book on digital arithmetic. Note that some exact multiplier implementations, specifically `Radix2Multiplier` and `RecursiveMultiplier`, permit approximation through their arguments.
+All exact designs are based on descriptions in [Ercegovac and Lang](https://www.sciencedirect.com/book/9781558607989/digital-arithmetic)'s book on digital arithmetic. Note that some exact multiplier implementations, specifically `Radix2Multiplier`, `Radix4Multiplier`, and `RecursiveMultiplier`, permit approximation through their arguments.
 
 | Type                          | Signed/unsigned | Name                                  | Code location                                                                                             |
 |-------------------------------|-----------------|---------------------------------------|-----------------------------------------------------------------------------------------------------------|

@@ -169,9 +169,9 @@ class Radix2MultiplierSpec extends ExactMultiplierSpec {
   behavior of "Radix-2 Multiplier"
 
   /** Run a generation test */
-  def generationTest(aWidth: Int, bWidth: Int, aSigned: Boolean, bSigned: Boolean, approx: Approximation) = {
-    it should s"generate signed=${aSigned || bSigned} with aWidth=$aWidth and bWidth=$bWidth and approx=$approx" in {
-      test(new Radix2Multiplier(aWidth, bWidth, aSigned, bSigned, approx=approx)) { dut => }
+  def generationTest(aWidth: Int, bWidth: Int, aSigned: Boolean, bSigned: Boolean, approx: Seq[Approximation]) = {
+    it should s"generate signed=${aSigned || bSigned} with aWidth=$aWidth and bWidth=$bWidth and approx=${approx.mkString("[", ", ", "]")}" in {
+      getVerilogString(new Radix2Multiplier(aWidth, bWidth, aSigned, bSigned, approx=approx))
     }
   }
 
@@ -182,7 +182,7 @@ class Radix2MultiplierSpec extends ExactMultiplierSpec {
 
       // Equal widths
       for (approx <- approxes; signed <- List(false, true)) {
-        generationTest(width, width, signed, signed, approx)
+        generationTest(width, width, signed, signed, Seq(approx))
       }
 
       it should s"do random $width-bit unsigned multiplication" in {
@@ -201,7 +201,7 @@ class Radix2MultiplierSpec extends ExactMultiplierSpec {
 
       // Non-equal widths
       for (approx <- approxes; signed <- List(false, true)) {
-        generationTest(width, if (width == SimpleWidth) SimpleWidth+1 else SimpleWidth, signed, signed, approx)
+        generationTest(width, if (width == SimpleWidth) SimpleWidth+1 else SimpleWidth, signed, signed, Seq(approx))
       }
 
       it should s"do random $width by $SimpleWidth-bit unsigned multiplications" in {
@@ -243,9 +243,9 @@ class Radix4MultiplierSpec extends ExactMultiplierSpec {
   behavior of "Radix-4 Multiplier"
 
   /** Run a generation test */
-  def generationTest(aWidth: Int, bWidth: Int, aSigned: Boolean, bSigned: Boolean, approx: Approximation) = {
-    it should s"generate signed=${aSigned || bSigned} with aWidth=$aWidth and bWidth=$bWidth and approx=$approx" in {
-      test(new Radix4Multiplier(aWidth, bWidth, aSigned, bSigned, approx=approx)) { dut => }
+  def generationTest(aWidth: Int, bWidth: Int, aSigned: Boolean, bSigned: Boolean, approx: Seq[Approximation]) = {
+    it should s"generate signed=${aSigned || bSigned} with aWidth=$aWidth and bWidth=$bWidth and approx=${approx.mkString("[", ", ", "]")}" in {
+      getVerilogString(new Radix4Multiplier(aWidth, bWidth, aSigned, bSigned, approx=approx))
     }
   }
 
@@ -256,7 +256,7 @@ class Radix4MultiplierSpec extends ExactMultiplierSpec {
 
       // Equal widths
       for (approx <- approxes; signed <- List(false, true)) {
-        generationTest(width, width, signed, signed, approx)
+        generationTest(width, width, signed, signed, Seq(approx))
       }
 
       it should s"do random $width-bit unsigned multiplication" in {
@@ -275,7 +275,7 @@ class Radix4MultiplierSpec extends ExactMultiplierSpec {
 
       // Non-equal widths
       for (approx <- approxes; signed <- List(false, true)) {
-        generationTest(width, if (width == SimpleWidth) SimpleWidth+1 else SimpleWidth, signed, signed, approx)
+        generationTest(width, if (width == SimpleWidth) SimpleWidth+1 else SimpleWidth, signed, signed, Seq(approx))
       }
 
       it should s"do random $width by $SimpleWidth-bit unsigned multiplications" in {
