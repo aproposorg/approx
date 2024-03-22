@@ -27,6 +27,30 @@ class Compressor4to2D2 extends C4to2 {
   io.cout := false.B
 }
 
+/** 1st approximate compressor 4:2
+ * 
+ * Implementation of design CV1 from Zanandrea and Meinhardt [2023]
+ * 
+ * Should have the cin input held low constantly.
+ */
+class Compressor4to2CV1 extends C4to2 {
+  io.s    := io.x2
+  io.c    := io.x3 | io.x4
+  io.cout := false.B
+}
+
+/** 2nd approximate compressor 4:2
+ * 
+ * Implementation of design CV2 from Zanandrea and Meinhardt [2023]
+ * 
+ * Should have the cin input held low constantly.
+ */
+class Compressor4to2CV2 extends C4to2 {
+  io.s    := true.B
+  io.c    := io.x4
+  io.cout := false.B
+}
+
 /** Approximate compressor 4:2
  * 
  * Implementation of the compressor from Moaiyeri et al. [2017]
