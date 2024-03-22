@@ -110,12 +110,15 @@ All exact designs are based on descriptions in [Ercegovac and Lang](https://www.
 
 | Type                                      | Signed/unsigned | Name                                                                  | Code location                                                                                              | Reference                                                                      |
 |-------------------------------------------|-----------------|-----------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------|
-| Reduced compressor 4:2                    |                 | `Compressor4to2D1`, `Compressor4to2D2`                                | [approx.multiplication.Compressor4to2](./src/main/scala/approx/multiplication/Compressors.scala#L14)       | [Momeni et al.](https://ieeexplore.ieee.org/document/6748013)                  |
-| Majority-based compressor 4:2             |                 | `Compressor4to2Maj`                                                   | [approx.multiplication.Compressor4to2Maj](./src/main/scala/approx/multiplication/Compressors.scala#L34)    | [Moaiyeri et al.](https://link.springer.com/article/10.1007/s00542-017-3587-2) |
-| Compressor 8:3                            |                 | `Compressor8to3`, `Compressor8to3SevenSeries`, `Compressor8to3Versal` | [approx.multiplication.Compressor8to3](./src/main/scala/approx/multiplication/Compressors.scala#L215)      | [Moaiyeri et al.](https://link.springer.com/article/10.1007/s00542-017-3587-2) |
+| Reduced compressor 4:2                    |                 | `Compressor4to2D1`, `Compressor4to2D2`                                | [approx.multiplication.Compressor4to2D1](./src/main/scala/approx/multiplication/Compressors.scala#L14)     | [Momeni et al.](https://ieeexplore.ieee.org/document/6748013)                  |
+| Modified compressor 4:2                   |                 | `Compressor4to2CV1`, `Compressor4to2CV2`                              | [approx.multiplication.Compressor4to2CV1](./src/main/scala/approx/multiplication/Compressors.scala#L36)    | [Zanandrea and Meinhardt](https://ieeexplore.ieee.org/document/10261949)       |
+| Majority-based compressor 4:2             |                 | `Compressor4to2Maj`                                                   | [approx.multiplication.Compressor4to2Maj](./src/main/scala/approx/multiplication/Compressors.scala#L58)    | [Moaiyeri et al.](https://link.springer.com/article/10.1007/s00542-017-3587-2) |
+| Compressor 8:3                            |                 | `Compressor8to3`, `Compressor8to3SevenSeries`, `Compressor8to3Versal` | [approx.multiplication.Compressor8to3](./src/main/scala/approx/multiplication/Compressors.scala#L239)      | [Moaiyeri et al.](https://link.springer.com/article/10.1007/s00542-017-3587-2) |
 | Kulkarni-style 2x2-bit multiplier         |                 | `Kulkarni`                                                            | [approx.multiplication.Kulkarni](./src/main/scala/approx/multiplication/Kulkarni.scala)                    | [Kulkarni et al.](https://ieeexplore.ieee.org/document/5718826)                |
 | Rehman-style 2x2-bit multiplier           |                 | `ApproxMul2`, `ApproxMul3`, `ApproxMul4`, `ApproxMul5`                | [approx.multiplication.Rehman](./src/main/scala/approx/multiplication/Rehman.scala)                        | [Rehman et al.](https://ieeexplore.ieee.org/document/7827657)                  |
 | Error-tolerant multiplier                 | Both            | `ETM`                                                                 | [approx.multiplication.ETM](./src/main/scala/approx/multiplication/ETM.scala)                              | [Kyaw et al.](https://ieeexplore.ieee.org/document/5713751)                    |
+| Minimally-biased multiplier               | Unsigned        | `MBM`                                                                 | [approx.multiplication.MBM](./src/main/scala/approx/multiplication/MBM.scala)                              | [Saadat et al.](https://ieeexplore.ieee.org/document/8493590)                  |
+| Dynamic range unbiased multiplier         | Both            | `DRUM`                                                                | [approx.multiplication.DRUM](./src/main/scala/approx/multiplication/DRUM.scala)                            | [Hashemi et al.](https://ieeexplore.ieee.org/document/7372600)                 |
 | Approximate radix-2 sequential multiplier | Unsigned        | `ApproxRadix2SeqMultiplier`                                           | [approx.multiplication.ApproxRadix2SeqMultiplier](./src/main/scala/approx/multiplication/Sequential.scala) | [Mannepalli et al.](https://dl.acm.org/doi/10.1145/3453688.3461482)            |
 
 ***
@@ -128,6 +131,25 @@ The `approx.division` library currently only contains an exact, sequential radix
 | Type            | Signed/unsigned | Name            | Code location                                                                     |
 |-----------------|-----------------|-----------------|-----------------------------------------------------------------------------------|
 | Radix-2 divider | Unsigned        | `Radix2Divider` | [approx.division.Radix2Divider](./src/main/scala/approx/division/Exact.scala#L15) |
+
+## Approximate designs
+
+N/A
+
+***
+# Accumulators
+
+The `approx.accumulation` library currently only contains a number of exact, non-pipelined single-lane and parallel accumulators with options for the parallel designs to be approximated with the custom compressor trees from `approx.multiplication.comptree`. We also hope to extend this collection in the future.
+
+## Exact designs
+
+| Type                          | Signed/unsigned | Name                          | Code location                                                                                            |
+|-------------------------------|-----------------|-------------------------------|----------------------------------------------------------------------------------------------------------|
+| Simple accumulator            | Both            | `SimpleAccumulator`           | [approx.accumulation.SimpleAccumulator](./src/main/scala/approx/accumulation/Exact.scala#L14)            |
+| Multiply accumulator          | Both            | `MultiplyAccumulator`         | [approx.accumulation.MultiplyAccumulator](./src/main/scala/approx/accumulation/Exact.scala#L34)          |
+| Bit matrix accumulator        |                 | `BitMatrixAccumulator`        | [approx.accumulation.BitMatrixAccumulator](./src/main/scala/approx/accumulation/Exact.scala#L58)         |
+| Parallel simple accumulator   | Both            | `ParallelSimpleAccumulator`   | [approx.accumulation.ParallelSimpleAccumulator](./src/main/scala/approx/accumulation/Exact.scala#L108)   |
+| Parallel multiply accumulator | Both            | `ParallelMultiplyAccumulator` | [approx.accumulation.ParallelMultiplyAccumulator](./src/main/scala/approx/accumulation/Exact.scala#L156) |
 
 ## Approximate designs
 

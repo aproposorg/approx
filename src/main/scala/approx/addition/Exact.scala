@@ -322,10 +322,7 @@ abstract class PPA(width: Int) extends Adder(width) {
 
     // Compute this level
     val outs = ins.sliding(grpSize, grpSize).foldLeft(Seq.empty[GenPropPair]) { case (acc, grp) =>
-      acc ++ grp.take(skip) ++ (skip until grp.size).map { i => 
-        println(s"Inserting empty dot at index $i in level $lvl")
-        emptyDot(grp(i), grp(skip - 1))
-      }
+      acc ++ grp.take(skip) ++ (skip until grp.size).map { i => emptyDot(grp(i), grp(skip - 1)) }
     }
 
     // If this is the ceil(lg(len(ins)))th level, we are done
