@@ -99,7 +99,7 @@ class BitMatrixAccumulator(sig: Signature, accW: Int, targetDevice: String = "",
  * @param inW the width of the input operands
  * @param accW the width of the accumulator
  * @param signed whether the input operands are signed (defaults to false)
- * @param comp whether to the the compressor tree generator (defaults to false)
+ * @param comp whether to use the compressor tree generator (defaults to false)
  * @param targetDevice a string indicating the target device
  *                     (defaults to "", meaning ASIC)
  * @param mtrc which metric to use for selecting counters (defaults to efficiency)
@@ -145,7 +145,7 @@ class ParallelSimpleAccumulator(nIn: Int, inW: Int, accW: Int, signed: Boolean =
  * @param inW the width of the input operands
  * @param accW the width of the accumulator
  * @param signed whether the input operands are signed (defaults to false)
- * @param comp whether to the the compressor tree generator (defaults to false)
+ * @param comp whether to use the compressor tree generator (defaults to false)
  * @param targetDevice a string indicating the target device
  *                     (defaults to "", meaning ASIC)
  * @param mtrc which metric to use for selecting counters (defaults to efficiency)

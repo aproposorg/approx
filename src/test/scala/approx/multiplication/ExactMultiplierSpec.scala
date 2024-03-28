@@ -171,7 +171,7 @@ class Radix2MultiplierSpec extends ExactMultiplierSpec {
   /** Run a generation test */
   def generationTest(aWidth: Int, bWidth: Int, aSigned: Boolean, bSigned: Boolean, approx: Seq[Approximation]) = {
     it should s"generate signed=${aSigned || bSigned} with aWidth=$aWidth and bWidth=$bWidth and approx=${approx.mkString("[", ", ", "]")}" in {
-      getVerilogString(new Radix2Multiplier(aWidth, bWidth, aSigned, bSigned, approx=approx))
+      getVerilogString(new Radix2Multiplier(aWidth, bWidth, aSigned, bSigned, comp=true, approx=approx))
     }
   }
 
@@ -245,7 +245,7 @@ class Radix4MultiplierSpec extends ExactMultiplierSpec {
   /** Run a generation test */
   def generationTest(aWidth: Int, bWidth: Int, aSigned: Boolean, bSigned: Boolean, approx: Seq[Approximation]) = {
     it should s"generate signed=${aSigned || bSigned} with aWidth=$aWidth and bWidth=$bWidth and approx=${approx.mkString("[", ", ", "]")}" in {
-      getVerilogString(new Radix4Multiplier(aWidth, bWidth, aSigned, bSigned, approx=approx))
+      getVerilogString(new Radix4Multiplier(aWidth, bWidth, aSigned, bSigned, comp=true, approx=approx))
     }
   }
 

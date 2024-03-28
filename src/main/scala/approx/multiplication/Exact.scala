@@ -110,6 +110,7 @@ class TwoXTwo extends TwoXTwoMult {
  * @param bWidth the width of the second operand
  * @param aSigned whether the first operand is signed (defaults to false)
  * @param bSigned whether the second operand is signed (defaults to false)
+ * @param comp whether to use the compressor generator (defaults to false)
  * @param targetDevice a string indicating the target device (defaults to "",
  *                     meaning ASIC)
  * @param approx the targeted approximation styles (defaults to no approximation)
@@ -117,7 +118,7 @@ class TwoXTwo extends TwoXTwoMult {
  * Makes use of the compressor tree generator to add partial products.
  */
 class Radix2Multiplier(aWidth: Int, bWidth: Int, aSigned: Boolean = false, bSigned: Boolean = false,
-                       targetDevice: String = "", approx: Seq[Approximation] = Seq.empty[Approximation])
+  comp: Boolean = false, targetDevice: String = "", approx: Seq[Approximation] = Seq.empty[Approximation])
   extends Multiplier(aWidth, bWidth) {
   /** Compute the number of partial product bits in a particular
    * column of the tree
@@ -157,37 +158,47 @@ class Radix2Multiplier(aWidth: Int, bWidth: Int, aSigned: Boolean = false, bSign
     val midHigh = scala.math.max(aW, bW) - 1
     val upper   = aW + bW - 1
 
-    // Instantiate a compressor tree and input the bits
-    // (incl. sign-extension constant)
-    val sig  = new MultSignature(aW, bW, true, true)
-    val comp = Module(CompressorTree(sig, targetDevice=targetDevice, approx=approx))
-    val ins  = Wire(Vec(sig.count, Bool()))
-    var offset = 0
-    (0 until sig.outW).foreach { col =>
-      // Add the partial product bits
-      val low  = lsCol(col, bW)
-      val high = low + dotCount(col, aW, bW)
-      (low until high).foreach { row =>
-        ins(offset) := pprods(row)(col - row)
-        offset += 1
-      }
+    // Depending on the parameters passed, generate a naive adder tree or use 
+    // the custom compressor tree generator
+    if (comp) {
+      // Instantiate a compressor tree and input the bits
+      // (incl. sign-extension constant)
+      val sig  = new MultSignature(aW, bW, true, true)
+      val comp = Module(CompressorTree(sig, targetDevice=targetDevice, approx=approx))
+      val ins  = Wire(Vec(sig.count, Bool()))
+      var offset = 0
+      (0 until sig.outW).foreach { col =>
+        // Add the partial product bits
+        val low  = lsCol(col, bW)
+        val high = low + dotCount(col, aW, bW)
+        (low until high).foreach { row =>
+          ins(offset) := pprods(row)(col - row)
+          offset += 1
+        }
 
-      // Add the sign-extension bits
-      if (col == midLow) {
-        ins(offset) := true.B
-        offset += 1
+        // Add the sign-extension bits
+        if (col == midLow) {
+          ins(offset) := true.B
+          offset += 1
+        }
+        if (col == midHigh) {
+          ins(offset) := true.B
+          offset += 1
+        }
+        if (col == upper) {
+          ins(offset) := true.B
+          offset += 1
+        }
       }
-      if (col == midHigh) {
-        ins(offset) := true.B
-        offset += 1
-      }
-      if (col == upper) {
-        ins(offset) := true.B
-        offset += 1
-      }
+      comp.io.in := ins.asUInt
+      io.p := comp.io.out
+    } else {
+      // Compute the sign-extension constant
+      val extConst = (BigInt(1) << midLow) + (BigInt(1) << midHigh) + (BigInt(1) << upper)
+
+      // Sum all the partial products and the constant
+      io.p := VecInit(pprods.zipWithIndex.map { case (pprod, ind) => if (ind == 0) pprod else (pprod ## 0.U(ind.W)) } :+ extConst.U).reduceTree(_ +& _)
     }
-    comp.io.in := ins.asUInt
-    io.p := comp.io.out
   } else {
     // ... both operands are unsigned
     val (aW, opA) = (aWidth, io.a)
@@ -196,22 +207,29 @@ class Radix2Multiplier(aWidth: Int, bWidth: Int, aSigned: Boolean = false, bSign
     // Create all the partial products
     val pprods = (0 until aW).map { i => VecInit(opB.asBools.map(_ & opA(i))).asUInt }
 
-    // Instantiate a compressor tree and input the bits
-    val sig  = new MultSignature(aW, bW, false, false)
-    val comp = Module(CompressorTree(sig, targetDevice=targetDevice, approx=approx))
-    val ins  = Wire(Vec(sig.count, Bool()))
-    var offset = 0
-    (0 until sig.outW).foreach { col =>
-      // Add the partial product bits
-      val low  = lsCol(col, bW)
-      val high = low + dotCount(col, aW, bW)
-      (low until high).foreach { row =>
-        ins(offset) := pprods(row)(col - row)
-        offset += 1
+    // Depending on the parameters passed, generate a naive adder tree or use 
+    // the custom compressor tree generator
+    if (comp) {
+      // Instantiate a compressor tree and input the bits
+      val sig  = new MultSignature(aW, bW, false, false)
+      val comp = Module(CompressorTree(sig, targetDevice=targetDevice, approx=approx))
+      val ins  = Wire(Vec(sig.count, Bool()))
+      var offset = 0
+      (0 until sig.outW).foreach { col =>
+        // Add the partial product bits
+        val low  = lsCol(col, bW)
+        val high = low + dotCount(col, aW, bW)
+        (low until high).foreach { row =>
+          ins(offset) := pprods(row)(col - row)
+          offset += 1
+        }
       }
+      comp.io.in := ins.asUInt
+      io.p := comp.io.out
+    } else {
+      // Sum all the partial products
+      io.p := VecInit(pprods.zipWithIndex.map { case (pprod, ind) => if (ind == 0) pprod else (pprod ## 0.U(ind.W)) }).reduceTree(_ +& _)
     }
-    comp.io.in := ins.asUInt
-    io.p := comp.io.out
   }
 }
 
@@ -221,6 +239,7 @@ class Radix2Multiplier(aWidth: Int, bWidth: Int, aSigned: Boolean = false, bSign
  * @param bWidth the width of the second operand
  * @param aSigned whether the first operand is signed (defaults to false)
  * @param bSigned whether the second operand is signed (defaults to false)
+ * @param comp whether to use the compressor tree generator (defaults to false)
  * @param targetDevice a string indicating the target device (defaults to "",
  *                     meaning ASIC)
  * @param approx the targeted approximation styles (defaults to no approximation)
@@ -228,7 +247,7 @@ class Radix2Multiplier(aWidth: Int, bWidth: Int, aSigned: Boolean = false, bSign
  * Makes use of the compressor tree generator to add partial products.
  */
 class Radix4Multiplier(aWidth: Int, bWidth: Int, aSigned: Boolean = false, bSigned: Boolean = false,
-                       targetDevice: String = "", approx: Seq[Approximation] = Seq.empty[Approximation])
+  comp: Boolean = false, targetDevice: String = "", approx: Seq[Approximation] = Seq.empty[Approximation])
   extends Multiplier(aWidth, bWidth) {
   /** Parallel recoding code bundle */
   private[Radix4Multiplier] class Code extends Bundle {
@@ -301,50 +320,75 @@ class Radix4Multiplier(aWidth: Int, bWidth: Int, aSigned: Boolean = false, bSign
     val nRows = (aW + 1) / 2
     val upper = aW + bW - 1
 
-    // Instantiate a compressor tree and input the bits
-    val sig = new MultSignature(aW, bW, aSigned, bSigned, 4)
-    val comp = Module(CompressorTree(sig, targetDevice=targetDevice, approx=approx))
-    val ins = Wire(Vec(sig.count, Bool()))
-    var offset = 0
-    (0 until aW + bW).foreach { col =>
-      // Add the partial product bits
-      val low  = lsCol(unsigned, col, bW)
-      val high = low + dotCount(unsigned, col, aW, bW)
-      (low until high).foreach { row =>
-        ins(offset) := pprods(row)(col - 2 * row)
-        offset += 1
-      }
-
-      // Add the carry bits
-      if (col <= ((nRows - 1) * 2) && (col & 0x1) == 0) { // insert a carry bit
-        ins(offset) := codes(col / 2).sgn
-        offset += 1
-      }
-
-      // Add the sign bits
-      if (col == bW || col == (bW + 1)) { // insert non-negated sign
-        ins(offset) := pprods(0)(bW)
-        offset += 1
-      } else if (col == (bW + 2)) { // insert two negated signs
-        ins(offset) := !pprods(0)(bW)
-        offset += 1
-        if (aW > 2) {
-          ins(offset) := !pprods(1)(bW)
+    // Depending on the parameters passed, generate a naive adder tree or use 
+    // the custom compressor tree generator
+    if (comp) {
+      // Instantiate a compressor tree and input the bits
+      val sig = new MultSignature(aW, bW, aSigned, bSigned, 4)
+      val comp = Module(CompressorTree(sig, targetDevice=targetDevice, approx=approx))
+      val ins = Wire(Vec(sig.count, Bool()))
+      var offset = 0
+      (0 until aW + bW).foreach { col =>
+        // Add the partial product bits
+        val low  = lsCol(unsigned, col, bW)
+        val high = low + dotCount(unsigned, col, aW, bW)
+        (low until high).foreach { row =>
+          ins(offset) := pprods(row)(col - 2 * row)
           offset += 1
         }
-      } else if ((bW + 3) < col && col <= upper && ((col - (bW + 3)) & 0x1) == 1) { // insert one negated sign
-        ins(offset) := !pprods((col - bW) / 2)(bW)
-        offset += 1
-      }
 
-      // Add the constant bits (bW + 3 sign bits)
-      if ((bW + 3) <= col && ((col - (bW + 3)) & 0x1) == 0) {
-        ins(offset) := true.B
-        offset += 1
+        // Add the carry bits
+        if (col <= ((nRows - 1) * 2) && (col & 0x1) == 0) { // insert a carry bit
+          ins(offset) := codes(col / 2).sgn
+          offset += 1
+        }
+
+        // Add the sign bits
+        if (col == bW || col == (bW + 1)) { // insert non-negated sign
+          ins(offset) := pprods(0)(bW)
+          offset += 1
+        } else if (col == (bW + 2)) { // insert two negated signs
+          ins(offset) := !pprods(0)(bW)
+          offset += 1
+          if (aW > 2) {
+            ins(offset) := !pprods(1)(bW)
+            offset += 1
+          }
+        } else if ((bW + 3) < col && col <= upper && ((col - (bW + 3)) & 0x1) == 1) { // insert one negated sign
+          ins(offset) := !pprods((col - bW) / 2)(bW)
+          offset += 1
+        }
+
+        // Add the constant bits (bW + 3 sign bits)
+        if ((bW + 3) <= col && ((col - (bW + 3)) & 0x1) == 0) {
+          ins(offset) := true.B
+          offset += 1
+        }
       }
+      comp.io.in := ins.asUInt
+      io.p := comp.io.out
+    } else {
+      // Compute the carry and sign-extension signal
+      val extSig = VecInit((0 until aW + bW).map { col =>
+        val carry = if (col <= ((nRows - 1) * 2) && (col & 0x1) == 0) {
+          if (col == 0) codes(col / 2).sgn else (codes(col / 2).sgn ## 0.U(col.W))
+        } else 0.U
+        val sgn = if (col == bW || col == (bW + 1)) { // insert non-negated sign
+          pprods(0)(bW) ## 0.U(col.W)
+        } else if (col == (bW + 2)) { // insert two negated signs
+          val first  = !pprods(0)(bW) ## 0.U(col.W)
+          val second = if (aW > 2) (!pprods(1)(bW) ## 0.U(col.W)) else 0.U
+          first +& second
+        } else if ((bW + 3) < col && col <= upper && ((col - (bW + 3)) & 0x1) == 1) { // insert one negated sign
+          !pprods((col - bW) / 2)(bW) ## 0.U(col.W)
+        } else 0.U
+        val const = if ((bW + 3) <= col && ((col - (bW + 3)) & 0x1) == 0) (true.B ## 0.U(col.W)) else 0.U
+        carry +& sgn +& const
+      }).reduceTree(_ +& _)
+
+      // Sum all the partial products and the carry and sign-extension signal
+      io.p := VecInit(pprods.zipWithIndex.map { case (pprod, ind) => if (ind == 0) pprod(bW-1, 0) else (pprod(bW-1, 0) ## 0.U((2*ind).W)) } :+ extSig).reduceTree(_ +& _)
     }
-    comp.io.in := ins.asUInt
-    io.p := comp.io.out
   } else {
     // ... both operands are unsigned
     val unsigned = true
@@ -375,50 +419,75 @@ class Radix4Multiplier(aWidth: Int, bWidth: Int, aSigned: Boolean = false, bSign
     val nRows = (aW + 1) / 2
     val upper = aW + bW - 1
 
-    // Instantiate a compressor tree and input the bits
-    val sig = new MultSignature(aW, bW, aSigned, bSigned, 4)
-    val comp = Module(CompressorTree(sig, targetDevice=targetDevice, approx=approx))
-    val ins = dontTouch(Wire(Vec(sig.count, Bool())))
-    var offset = 0
-    (0 until aW + bW).foreach { col =>
-      // Add the partial product bits
-      val low  = lsCol(unsigned, col, bW)
-      val high = low + dotCount(unsigned, col, aW, bW)
-      (low until high).foreach { row =>
-        ins(offset) := pprods(row)(col - 2 * row)
-        offset += 1
-      }
-
-      // Add the carry bits
-      if (col < ((nRows - 1) * 2) && (col & 0x1) == 0) { // insert a carry bit
-        ins(offset) := codes(col / 2).sgn
-        offset += 1
-      }
-
-      // Add the sign bits
-      if (col == (bW + 1) || col == (bW + 2)) { // insert non-negated sign
-        ins(offset) := codes(0).sgn
-        offset += 1
-      } else if (col == (bW + 3)) { // insert two negated signs
-        ins(offset) := !codes(0).sgn
-        offset += 1
-        if (aW > 2) {
-          ins(offset) := !codes(1).sgn
+    // Depending on the parameters passed, generate a naive adder tree or use 
+    // the custom compressor tree generator
+    if (comp) {
+      // Instantiate a compressor tree and input the bits
+      val sig = new MultSignature(aW, bW, aSigned, bSigned, 4)
+      val comp = Module(CompressorTree(sig, targetDevice=targetDevice, approx=approx))
+      val ins = dontTouch(Wire(Vec(sig.count, Bool())))
+      var offset = 0
+      (0 until aW + bW).foreach { col =>
+        // Add the partial product bits
+        val low  = lsCol(unsigned, col, bW)
+        val high = low + dotCount(unsigned, col, aW, bW)
+        (low until high).foreach { row =>
+          ins(offset) := pprods(row)(col - 2 * row)
           offset += 1
         }
-      } else if ((bW + 3) < col && col < upper && ((col - (bW + 3)) & 0x1) == 0) { // insert one negated sign
-        ins(offset) := !codes((col - (bW + 1)) / 2).sgn
-        offset += 1
-      }
 
-      // Add the constant bits (bW + 1 bit for shift + 3 sign bits)
-      if ((bW + 4) <= col && ((col - (bW + 4)) & 0x1) == 0) {
-        ins(offset) := true.B
-        offset += 1
+        // Add the carry bits
+        if (col < ((nRows - 1) * 2) && (col & 0x1) == 0) { // insert a carry bit
+          ins(offset) := codes(col / 2).sgn
+          offset += 1
+        }
+
+        // Add the sign bits
+        if (col == (bW + 1) || col == (bW + 2)) { // insert non-negated sign
+          ins(offset) := codes(0).sgn
+          offset += 1
+        } else if (col == (bW + 3)) { // insert two negated signs
+          ins(offset) := !codes(0).sgn
+          offset += 1
+          if (aW > 2) {
+            ins(offset) := !codes(1).sgn
+            offset += 1
+          }
+        } else if ((bW + 3) < col && col < upper && ((col - (bW + 3)) & 0x1) == 0) { // insert one negated sign
+          ins(offset) := !codes((col - (bW + 1)) / 2).sgn
+          offset += 1
+        }
+
+        // Add the constant bits (bW + 1 bit for shift + 3 sign bits)
+        if ((bW + 4) <= col && ((col - (bW + 4)) & 0x1) == 0) {
+          ins(offset) := true.B
+          offset += 1
+        }
       }
+      comp.io.in := ins.asUInt
+      io.p := comp.io.out
+    } else {
+      // Compute the carry and sign-extension signal
+      val extSig = VecInit((0 until aW + bW).map { col =>
+        val carry = if (col <= ((nRows - 1) * 2) && (col & 0x1) == 0) {
+          if (col == 0) codes(col / 2).sgn else (codes(col / 2).sgn ## 0.U(col.W))
+        } else 0.U
+        val sgn = if (col == (bW + 1) || col == (bW + 2)) { // insert non-negated sign
+          codes(0).sgn ## 0.U(col.W)
+        } else if (col == (bW + 3)) { // insert two negated signs
+          val first  = !codes(0).sgn ## 0.U(col.W)
+          val second = if (aW > 2) (!codes(1).sgn ## 0.U(col.W)) else 0.U
+          first +& second
+        } else if ((bW + 3) < col && col < upper && ((col - (bW + 3)) & 0x1) == 0) { // insert one negated sign
+          !codes((col - (bW + 1)) / 2).sgn ## 0.U(col.W)
+        } else 0.U
+        val const = if ((bW + 4) <= col && ((col - (bW + 4)) & 0x1) == 0) (true.B ## 0.U(col.W)) else 0.U
+        (carry +& sgn) +& const
+      }).reduceTree(_ +& _)
+
+      // Sum all the partial products and the carry and sign-extension signal
+      io.p := VecInit(pprods.zipWithIndex.map { case (pprod, ind) => if (ind == 0) pprod else (pprod ## 0.U((2*ind).W)) } :+ extSig).reduceTree(_ +& _)
     }
-    comp.io.in := ins.asUInt
-    io.p := comp.io.out
   }
 }
 
