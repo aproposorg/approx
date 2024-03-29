@@ -8,7 +8,7 @@ import chiseltest._
 import org.scalatest.flatspec.AnyFlatSpec
 
 /** Common test patterns for exact dividers */
-trait ExactDividerSpec extends AnyFlatSpec with ChiselScalatestTester {
+trait ExactSeqDividerSpec extends AnyFlatSpec with ChiselScalatestTester {
   val SimpleWidth  = 8
   val CommonWidths = List(4, 8, 16, 32)
 
@@ -109,11 +109,11 @@ trait ExactDividerSpec extends AnyFlatSpec with ChiselScalatestTester {
   }
 }
 
-class Radix2DividerSpec extends ExactDividerSpec {
+class Radix2SeqDividerSpec extends ExactSeqDividerSpec {
   behavior of "Radix 2 Divider"
 
   it should "do simple divisions" in {
-    test(new Radix2Divider(SimpleWidth))
+    test(new Radix2SeqDivider(SimpleWidth))
       .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
       simpleTest(dut)
     }
@@ -121,7 +121,7 @@ class Radix2DividerSpec extends ExactDividerSpec {
 
   for (width <- CommonWidths) {
     it should s"do random $width-bit divisions" in {
-      test(new Radix2Divider(width))
+      test(new Radix2SeqDivider(width))
         .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
         randomUnsignedTest(dut)
       }
