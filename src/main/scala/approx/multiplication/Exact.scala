@@ -282,8 +282,8 @@ trait HasRadix4PartialProducts {
    * @return the least significant row index in column `col`
    */
   def lsCol(unsigned: Boolean, col: Int, bW: Int): Int = {
-    val usgnd = if (unsigned) 1 else 0
-    if (col < (bW + usgnd)) 0 else (col - bW + usgnd) / 2
+    if   (col < (bW + (if (unsigned) 1 else 0))) 0
+    else (col - bW + (if (unsigned) 1 else 2)) / 2
   }
 }
 
