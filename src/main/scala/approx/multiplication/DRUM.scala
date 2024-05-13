@@ -13,7 +13,9 @@ import approx.util.LOPD
  * Implementation of the multiplier of Hashemi et al. [2015]
  */
 class DRUM(width: Int, segWidth: Int, signed: Boolean = false) extends Multiplier(width, width) {
-  require(0 < segWidth && segWidth < width, "the sub-segments must be shorter than the full operand width")
+  require(0 < segWidth && segWidth < width,
+    "the sub-segments must be shorter than the full operand width")
+
   // If the multiplier is signed, change the sign of incoming negative operands
   val (sA, sB) = (io.a(width-1), io.b(width-1))
   val opA = if (!signed) io.a else (VecInit(Seq.fill(width)(sA)).asUInt ^ io.a) + sA

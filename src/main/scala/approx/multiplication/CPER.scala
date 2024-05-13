@@ -13,7 +13,8 @@ import chisel3._
  * Only works for unsigned numbers.
  */
 class CPER(width: Int, rcvrWidth: Int) extends Multiplier(width, width) {
-  require(rcvrWidth < 2*width, "the error recovery part must be shorter than the product width")
+  require(rcvrWidth < 2*width,
+    "the error recovery part must be shorter than the product width")
 
   /** Recursively build an approximate tree compressor with broken adder cells
    * 
@@ -50,8 +51,4 @@ class CPER(width: Int, rcvrWidth: Int) extends Multiplier(width, width) {
   val ersOr = VecInit((0 until 2*width).map(c => VecInit(ers.map(_(c))).asUInt.orR)).asUInt
   val vs = if (rcvrWidth == 0) 0.U else ersOr(2*width-1, 2*width-rcvrWidth) ## 0.U((2*width-rcvrWidth-1).W)
   io.p := pf + vs
-}
-
-object CPER extends App {
-  (new chisel3.stage.ChiselStage).emitVerilog(new CPER(8, 4), Array("--target-dir", "build"))
 }

@@ -11,8 +11,10 @@ import chisel3._
  * Implementation of the adder from Echavarria et al. [2016]
  */
 class FAU(width: Int, val approxWidth: Int, val passOverWidth: Int) extends Adder(width) {
-  require(approxWidth <= width, "width of the approximate part must be less than the width")
-  require(passOverWidth < approxWidth, "number of passed-over bits must be less than the approximate width")
+  require(approxWidth <= width,
+    "width of the approximate part must be less than the width")
+  require(passOverWidth < approxWidth,
+    "number of passed-over bits must be less than the approximate width")
 
   /** Generate the carry-in to the MSP
    * 

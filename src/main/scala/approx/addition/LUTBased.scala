@@ -5,12 +5,14 @@ import chisel3._
 /** LUT-based approximate adder
  * 
  * @param width the width of the adder
- * @param approxWidth the width of the approximate part (must be less than or equal to the width)
+ * @param approxWidth the width of the approximate part
+ *                    (must be less than or equal to the width)
  * 
  * Implementation of the adder from Becher [2016]
  */
 class LUTBased(width: Int, val approxWidth: Int) extends Adder(width) {
-  require(approxWidth <= width, "width of the approximate part must be less than the width")
+  require(approxWidth <= width,
+    "width of the approximate part must be less than the width")
 
   // Generate lower part (i.e., m bits)
   val all1   = (io.a(approxWidth-1) ^ io.b(approxWidth-1)) & (io.a(approxWidth-2) & io.b(approxWidth-2))

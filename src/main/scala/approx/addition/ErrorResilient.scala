@@ -19,7 +19,8 @@ class AFA extends FA {
  * Implementation of the adder from Dutt et al. [2016]
  */
 class ErrorResilient(width: Int, val approxWidth: Int) extends Adder(width) {
-  require(approxWidth <= width, "width of the approximate part must be less than or equal to the total width")
+  require(approxWidth <= width,
+    "width of the approximate part must be less than or equal to the total width")
 
   // Generate full row of full adders
   val sums = Wire(Vec(width, Bool()))
@@ -47,7 +48,8 @@ class ErrorResilient(width: Int, val approxWidth: Int) extends Adder(width) {
  * Implementation of the adder from Dutt et al. [2016]
  */
 class ErrorResilientCorrect(width: Int, val approxWidth: Int) extends Adder(width) {
-  require(approxWidth <= width, "width of the approximate part must be less than or equal to the total width")
+  require(approxWidth <= width,
+    "width of the approximate part must be less than or equal to the total width")
 
   // Instantiate an error resilient adder
   val adderSums = Wire(Vec(width, Bool()))

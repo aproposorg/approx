@@ -12,7 +12,8 @@ import chisel3._
  * Only works for unsigned numbers. Excludes the carry-maskable adder.
  */
 class LPSA(width: Int, truncWidth: Int) extends Multiplier(width, width) {
-  require(truncWidth < 2*width, "the truncated part must be shorter than the product width")
+  require(truncWidth < 2*width,
+    "the truncated part must be shorter than the product width")
 
   /** Recursively build an approximate tree compressor with incomplete adder cells
    * 

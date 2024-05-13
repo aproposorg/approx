@@ -10,7 +10,8 @@ import chisel3._
  * Implementation of the adder from da Rosa et al. [2023]
  */
 abstract class AxPPA(width: Int, val approxWidth: Int) extends PPA(width) {
-  require(approxWidth <= width, "width of the approximate part must be less than or equal to the total width")
+  require(approxWidth <= width,
+    "width of the approximate part must be less than or equal to the total width")
 }
 
 /** Approximate parallel prefix adder with Brent-Kung architecture

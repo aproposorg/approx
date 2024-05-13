@@ -34,17 +34,18 @@ The `approx.addition` library contains a vast number of approximate and exact ad
 
 All exact designs are based on descriptions in [Ercegovac and Lang](https://www.sciencedirect.com/book/9781558607989/digital-arithmetic)'s book on digital arithmetic.
 
-| Type                                    | Name           | Code location                                                                     |
-|-----------------------------------------|----------------|-----------------------------------------------------------------------------------|
-| Half adder                              | `HalfAdder`    | [approx.addition.HalfAdder](./src/main/scala/approx/addition/Exact.scala#L8)      |
-| Full adder                              | `FullAdder`    | [approx.addition.FullAdder](./src/main/scala/approx/addition/Exact.scala#L14)     |
-| Ripple-carry adder                      | `RCA`          | [approx.addition.RCA](./src/main/scala/approx/addition/Exact.scala#L23)           |
-| Carry-lookahead adder                   | `CLA`          | [approx.addition.CLA](./src/main/scala/approx/addition/Exact.scala#L84)           |
-| Two-layer carry-lookahead adder         | `CLA2`         | [approx.addition.CLA2](./src/main/scala/approx/addition/Exact.scala#L118)         |
-| Carry-select adder                      | `CSA`          | [approx.addition.CSA](./src/main/scala/approx/addition/Exact.scala#L178)          |
-| Parallel prefix adder                   | `PPA`          | [approx.addition.PPA](./src/main/scala/approx/addition/Exact.scala#L222)          |
-| Self-timed adder                        | `STA`          | [approx.addition.STA](./src/main/scala/approx/addition/ExactSelfTimed.scala#L13)  |
-| Parallel carry-completion sensing adder | `CCA`          | [approx.addition.CCA](./src/main/scala/approx/addition/ExactSelfTimed.scala#L58)  |
+| Type                                            | Name             | Code location                                                                           |
+|-------------------------------------------------|------------------|-----------------------------------------------------------------------------------------|
+| Half adder                                      | `HalfAdder`      | [approx.addition.HalfAdder](./src/main/scala/approx/addition/Exact.scala#L8)            |
+| Full adder                                      | `FullAdder`      | [approx.addition.FullAdder](./src/main/scala/approx/addition/Exact.scala#L14)           |
+| Ripple-carry adder                              | `RCA`            | [approx.addition.RCA](./src/main/scala/approx/addition/Exact.scala#L23)                 |
+| Adaptive optimized lower-part constant-OR adder | `AdaptiveOFLOCA` | [approx.addition.AdaptiveOFLOCA](./src/main/scala/approx/addition/AdaptiveOFLOCA.scala) |
+| Carry-lookahead adder                           | `CLA`            | [approx.addition.CLA](./src/main/scala/approx/addition/Exact.scala#L84)                 |
+| Two-layer carry-lookahead adder                 | `CLA2`           | [approx.addition.CLA2](./src/main/scala/approx/addition/Exact.scala#L118)               |
+| Carry-select adder                              | `CSA`            | [approx.addition.CSA](./src/main/scala/approx/addition/Exact.scala#L178)                |
+| Parallel prefix adder                           | `PPA`            | [approx.addition.PPA](./src/main/scala/approx/addition/Exact.scala#L222)                |
+| Self-timed adder                                | `STA`            | [approx.addition.STA](./src/main/scala/approx/addition/ExactSelfTimed.scala#L13)        |
+| Parallel carry-completion sensing adder         | `CCA`            | [approx.addition.CCA](./src/main/scala/approx/addition/ExactSelfTimed.scala#L58)        |
 
 ## Approximate designs
 
@@ -90,36 +91,39 @@ Like above, the `approx.multiplication` library contains several approximate and
 
 ## Exact designs
 
-All exact designs are based on descriptions in [Ercegovac and Lang](https://www.sciencedirect.com/book/9781558607989/digital-arithmetic)'s book on digital arithmetic. Note that some exact multiplier implementations, specifically `Radix2Multiplier`, `Radix4Multiplier`, and `RecursiveMultiplier`, permit approximation through their arguments.
+All exact designs are based on descriptions in [Ercegovac and Lang](https://www.sciencedirect.com/book/9781558607989/digital-arithmetic)'s book on digital arithmetic. Note that some exact multiplier implementations, specifically `Radix2Multiplier`, `Radix4Multiplier`, `RecursiveMultiplier`, and `AdaptiveRadix2Multiplier`, permit approximation through their arguments.
 
-| Type                          | Signed/unsigned | Name                                  | Code location                                                                                             |
-|-------------------------------|-----------------|---------------------------------------|-----------------------------------------------------------------------------------------------------------|
-| Compressor 2:2                |                 | `Compressor2to2`                      | [approx.multiplication.Compressor3to2](./src/main/scala/approx/multiplication/Exact.scala#L10)            |
-| Compressor 3:2                |                 | `Compressor3to2`                      | [approx.multiplication.Compressor3to2](./src/main/scala/approx/multiplication/Exact.scala#L19)            |
-| Compressor 4:2                |                 | `Compressor4to2`, `Compressor4to2Opt` | [approx.multiplication.Compressor4to2](./src/main/scala/approx/multiplication/Exact.scala#L29)            |
-| Compressor 5:3                |                 | `Compressor5to3`                      | [approx.multiplication.Compressor5to3](./src/main/scala/approx/multiplication/Exact.scala#L56)            |
-| Compressor 7:3                |                 | `Compressor7to3`                      | [approx.multiplication.Compressor7to3](./src/main/scala/approx/multiplication/Exact.scala#L74)            |
-| 2x2-bit multiplier            |                 | `TwoxTwo`                             | [approx.multiplication.TwoxTwo](./src/main/scala/approx/multiplication/Exact.scala#L97)                   |
-| Radix-2 array multiplier      | Both            | `Radix2Multiplier`                    | [approx.multiplication.Radix2Multiplier](./src/main/scala/approx/multiplication/Exact.scala#L119)         |
-| Radix-4 array multiplier      | Both            | `Radix4Multiplier`                    | [approx.multiplication.Radix4Multiplier](./src/main/scala/approx/multiplication/Exact.scala#L230)         |
-| Recursive multiplier          | Both            | `RecursiveMultiplier`                 | [approx.multiplication.RecursiveMultiplier](./src/main/scala/approx/multiplication/Exact.scala#L431)      |
-| Alphabet-set multiplier       | Both            | `AlphabetSetMultiplier`               | [approx.multiplication.AlphabetSetMultiplier](./src/main/scala/approx/multiplication/Exact.scala#L517)    |
-| Radix-2 sequential multiplier | Unsigned        | `Radix2SeqMultiplier`                 | [approx.multiplication.Radix2SeqMultiplier](./src/main/scala/approx/multiplication/ExactSequential.scala) |
+| Type                              | Signed/unsigned | Name                                  | Code location                                                                                                           |
+|-----------------------------------|-----------------|---------------------------------------|-------------------------------------------------------------------------------------------------------------------------|
+| Compressor 2:2                    |                 | `Compressor2to2`                      | [approx.multiplication.Compressor3to2](./src/main/scala/approx/multiplication/Exact.scala#L10)                          |
+| Compressor 3:2                    |                 | `Compressor3to2`                      | [approx.multiplication.Compressor3to2](./src/main/scala/approx/multiplication/Exact.scala#L19)                          |
+| Compressor 4:2                    |                 | `Compressor4to2`, `Compressor4to2Opt` | [approx.multiplication.Compressor4to2](./src/main/scala/approx/multiplication/Exact.scala#L29)                          |
+| Compressor 5:3                    |                 | `Compressor5to3`                      | [approx.multiplication.Compressor5to3](./src/main/scala/approx/multiplication/Exact.scala#L56)                          |
+| Compressor 7:3                    |                 | `Compressor7to3`                      | [approx.multiplication.Compressor7to3](./src/main/scala/approx/multiplication/Exact.scala#L74)                          |
+| 2x2-bit multiplier                |                 | `TwoxTwo`                             | [approx.multiplication.TwoxTwo](./src/main/scala/approx/multiplication/Exact.scala#L97)                                 |
+| Radix-2 array multiplier          | Both            | `Radix2Multiplier`                    | [approx.multiplication.Radix2Multiplier](./src/main/scala/approx/multiplication/Exact.scala#L119)                       |
+| Adaptive radix-2 array multiplier | Both            | `AdaptiveRadix2Multiplier`            | [approx.multiplication.AdaptiveRadix2Multiplier](./src/main/scala/approx/multiplication/AdaptiveRadix2Multiplier.scala) |
+| Radix-4 array multiplier          | Both            | `Radix4Multiplier`                    | [approx.multiplication.Radix4Multiplier](./src/main/scala/approx/multiplication/Exact.scala#L230)                       |
+| Recursive multiplier              | Both            | `RecursiveMultiplier`                 | [approx.multiplication.RecursiveMultiplier](./src/main/scala/approx/multiplication/Exact.scala#L431)                    |
+| Alphabet-set multiplier           | Both            | `AlphabetSetMultiplier`               | [approx.multiplication.AlphabetSetMultiplier](./src/main/scala/approx/multiplication/Exact.scala#L517)                  |
+| Radix-2 sequential multiplier     | Unsigned        | `Radix2SeqMultiplier`                 | [approx.multiplication.Radix2SeqMultiplier](./src/main/scala/approx/multiplication/ExactSequential.scala)               |
 
 ## Approximate designs
 
-| Type                                      | Signed/unsigned | Name                                                                  | Code location                                                                                              | Reference                                                                      |
-|-------------------------------------------|-----------------|-----------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------|
-| Reduced compressor 4:2                    |                 | `Compressor4to2D1`, `Compressor4to2D2`                                | [approx.multiplication.Compressor4to2D1](./src/main/scala/approx/multiplication/Compressors.scala#L14)     | [Momeni et al.](https://ieeexplore.ieee.org/document/6748013)                  |
-| Modified compressor 4:2                   |                 | `Compressor4to2CV1`, `Compressor4to2CV2`                              | [approx.multiplication.Compressor4to2CV1](./src/main/scala/approx/multiplication/Compressors.scala#L36)    | [Zanandrea and Meinhardt](https://ieeexplore.ieee.org/document/10261949)       |
-| Majority-based compressor 4:2             |                 | `Compressor4to2Maj`                                                   | [approx.multiplication.Compressor4to2Maj](./src/main/scala/approx/multiplication/Compressors.scala#L58)    | [Moaiyeri et al.](https://link.springer.com/article/10.1007/s00542-017-3587-2) |
-| Compressor 8:3                            |                 | `Compressor8to3`, `Compressor8to3SevenSeries`, `Compressor8to3Versal` | [approx.multiplication.Compressor8to3](./src/main/scala/approx/multiplication/Compressors.scala#L239)      | [Moaiyeri et al.](https://link.springer.com/article/10.1007/s00542-017-3587-2) |
-| Kulkarni-style 2x2-bit multiplier         |                 | `Kulkarni`                                                            | [approx.multiplication.Kulkarni](./src/main/scala/approx/multiplication/Kulkarni.scala)                    | [Kulkarni et al.](https://ieeexplore.ieee.org/document/5718826)                |
-| Rehman-style 2x2-bit multiplier           |                 | `ApproxMul2`, `ApproxMul3`, `ApproxMul4`, `ApproxMul5`                | [approx.multiplication.Rehman](./src/main/scala/approx/multiplication/Rehman.scala)                        | [Rehman et al.](https://ieeexplore.ieee.org/document/7827657)                  |
-| Error-tolerant multiplier                 | Both            | `ETM`                                                                 | [approx.multiplication.ETM](./src/main/scala/approx/multiplication/ETM.scala)                              | [Kyaw et al.](https://ieeexplore.ieee.org/document/5713751)                    |
-| Minimally-biased multiplier               | Unsigned        | `MBM`                                                                 | [approx.multiplication.MBM](./src/main/scala/approx/multiplication/MBM.scala)                              | [Saadat et al.](https://ieeexplore.ieee.org/document/8493590)                  |
-| Dynamic range unbiased multiplier         | Both            | `DRUM`                                                                | [approx.multiplication.DRUM](./src/main/scala/approx/multiplication/DRUM.scala)                            | [Hashemi et al.](https://ieeexplore.ieee.org/document/7372600)                 |
-| Approximate radix-2 sequential multiplier | Unsigned        | `ApproxRadix2SeqMultiplier`                                           | [approx.multiplication.ApproxRadix2SeqMultiplier](./src/main/scala/approx/multiplication/Sequential.scala) | [Mannepalli et al.](https://dl.acm.org/doi/10.1145/3453688.3461482)            |
+| Type                                           | Signed/unsigned | Name                                                                  | Code location                                                                                              | Reference                                                                      |
+|------------------------------------------------|-----------------|-----------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------|
+| Reduced compressor 4:2                         |                 | `Compressor4to2D1`, `Compressor4to2D2`                                | [approx.multiplication.Compressor4to2D1](./src/main/scala/approx/multiplication/Compressors.scala#L14)     | [Momeni et al.](https://ieeexplore.ieee.org/document/6748013)                  |
+| Modified compressor 4:2                        |                 | `Compressor4to2CV1`, `Compressor4to2CV2`                              | [approx.multiplication.Compressor4to2CV1](./src/main/scala/approx/multiplication/Compressors.scala#L36)    | [Zanandrea and Meinhardt](https://ieeexplore.ieee.org/document/10261949)       |
+| Majority-based compressor 4:2                  |                 | `Compressor4to2Maj`                                                   | [approx.multiplication.Compressor4to2Maj](./src/main/scala/approx/multiplication/Compressors.scala#L58)    | [Moaiyeri et al.](https://link.springer.com/article/10.1007/s00542-017-3587-2) |
+| Compressor 8:3                                 |                 | `Compressor8to3`, `Compressor8to3SevenSeries`, `Compressor8to3Versal` | [approx.multiplication.Compressor8to3](./src/main/scala/approx/multiplication/Compressors.scala#L239)      | [Moaiyeri et al.](https://link.springer.com/article/10.1007/s00542-017-3587-2) |
+| Kulkarni-style 2x2-bit multiplier              |                 | `Kulkarni`                                                            | [approx.multiplication.Kulkarni](./src/main/scala/approx/multiplication/Kulkarni.scala)                    | [Kulkarni et al.](https://ieeexplore.ieee.org/document/5718826)                |
+| Rehman-style 2x2-bit multiplier                |                 | `ApproxMul2`, `ApproxMul3`, `ApproxMul4`, `ApproxMul5`                | [approx.multiplication.Rehman](./src/main/scala/approx/multiplication/Rehman.scala)                        | [Rehman et al.](https://ieeexplore.ieee.org/document/7827657)                  |
+| Configurable partial error recovery multiplier | Unsigned        | `CPER`                                                                | [approx.multiplication.CPER](./src/main/scala/approx/multiplication/CPER.scala)                            | [Liu et al.](https://ieeexplore.ieee.org/document/6800309)                     |
+| Dynamic range unbiased multiplier              | Both            | `DRUM`                                                                | [approx.multiplication.DRUM](./src/main/scala/approx/multiplication/DRUM.scala)                            | [Hashemi et al.](https://ieeexplore.ieee.org/document/7372600)                 |
+| Error-tolerant multiplier                      | Both            | `ETM`                                                                 | [approx.multiplication.ETM](./src/main/scala/approx/multiplication/ETM.scala)                              | [Kyaw et al.](https://ieeexplore.ieee.org/document/5713751)                    |
+| Low-power small-area multiplier                | Unsigned        | `LPSA`                                                                | [approx.multiplication.LPSA](./src/main/scala/approx/multiplication/LPSA.scala)                            | [Baba et al.](https://ieeexplore.ieee.org/document/8429430)                    |
+| Minimally-biased multiplier                    | Unsigned        | `MBM`                                                                 | [approx.multiplication.MBM](./src/main/scala/approx/multiplication/MBM.scala)                              | [Saadat et al.](https://ieeexplore.ieee.org/document/8493590)                  |
+| Approximate radix-2 sequential multiplier      | Unsigned        | `ApproxRadix2SeqMultiplier`                                           | [approx.multiplication.ApproxRadix2SeqMultiplier](./src/main/scala/approx/multiplication/Sequential.scala) | [Mannepalli et al.](https://dl.acm.org/doi/10.1145/3453688.3461482)            |
 
 ***
 # Dividers
@@ -128,9 +132,9 @@ The `approx.division` library currently only contains an exact, sequential radix
 
 ## Exact designs
 
-| Type            | Signed/unsigned | Name            | Code location                                                                     |
-|-----------------|-----------------|-----------------|-----------------------------------------------------------------------------------|
-| Radix-2 divider | Unsigned        | `Radix2Divider` | [approx.division.Radix2Divider](./src/main/scala/approx/division/Exact.scala#L15) |
+| Type                       | Signed/unsigned | Name               | Code location                                                                                  |
+|----------------------------|-----------------|--------------------|------------------------------------------------------------------------------------------------|
+| Radix-2 sequential divider | Unsigned        | `Radix2SeqDivider` | [approx.division.Radix2SeqDivider](./src/main/scala/approx/division/ExactSequential.scala#L15) |
 
 ## Approximate designs
 

@@ -10,7 +10,8 @@ import chisel3._
  * Implementation of the adder from Lu [2004]
  */
 class LUA(width: Int, val chainWidth: Int) extends Adder(width) {
-  require(chainWidth <= width, "the width of the carry chains must be less than or equal to the total width")
+  require(chainWidth <= width,
+    "the width of the carry chains must be less than or equal to the total width")
 
   /** Generate a carry select-style chain
    * 

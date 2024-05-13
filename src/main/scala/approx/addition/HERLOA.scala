@@ -10,7 +10,8 @@ import chisel3._
  * Implementation of the adder from Seo et al. [2020]
  */
 class HERLOA(width: Int, val approxWidth: Int) extends Adder(width) {
-  require(approxWidth <= width, "width of the approximate part must be less than the width")
+  require(approxWidth <= width,
+    "width of the approximate part must be less than the width")
   
   val fas = width - approxWidth
   val sums = Wire(Vec(width, Bool()))

@@ -3,6 +3,7 @@
 .bsp/*
 .metals/*
 .vscode/*
+build/*
 project/*
 target/*
 test_run_dir/*

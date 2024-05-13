@@ -119,7 +119,8 @@ class CLA2(width: Int, val stages: Tuple2[Int, Int]) extends Adder(width) {
   val (stageWidth1, stageWidth2) = (width / stages._1, stages._1 / stages._2)
   require(stageWidth1 >= 2, "width of stages in first layer must be at least 2")
   require(stageWidth2 >= 1, "width of stages in second layer must be at least 1")
-  require(stages._2 <= stages._1, "number of stages in second layer must be less than or equal to the number of stages in first layer")
+  require(stages._2 <= stages._1,
+    "number of stages in second layer must be less than or equal to the number of stages in first layer")
   require(stages._1 < width, "number of stages must be less than the width")
 
   // Split operands

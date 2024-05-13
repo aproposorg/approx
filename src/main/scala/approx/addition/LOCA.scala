@@ -11,8 +11,10 @@ import chisel3._
  * Implementation of the adder from Dalloo [2018]
  */
 class LOCA(width: Int, val approxWidth: Int, val constWidth: Int) extends Adder(width) {
-  require(approxWidth <= width, "width of the approximate part must be less than or equal to the total width")
-  require(constWidth <= approxWidth, "width of the constant part must be less than or equal to the approximate width")
+  require(approxWidth <= width,
+    "width of the approximate part must be less than or equal to the total width")
+  require(constWidth <= approxWidth,
+    "width of the constant part must be less than or equal to the approximate width")
   
   val sums = Wire(Vec(width, Bool()))
 

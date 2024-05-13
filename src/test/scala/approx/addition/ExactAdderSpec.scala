@@ -269,3 +269,35 @@ class LadnerFischerPPASpec extends ExactAdderSpec {
     }
   }
 }
+
+class AdaptiveOFLOCASpec extends ExactAdderSpec {
+  behavior of "Adaptive OFLOCA"
+
+  class Wrapper(width: Int, approxWidth: Int, numModes: Int) extends Adder(width) {
+    val aOfloca = Module(new AdaptiveOFLOCA(width, approxWidth, numModes))
+    aOfloca.io.ctrl := 0.U // disable approximation
+    aOfloca.io.a    := io.a
+    aOfloca.io.b    := io.b
+    aOfloca.io.cin  := io.cin
+    io.s    := aOfloca.io.s
+    io.cout := aOfloca.io.cout
+  }
+
+  def getRandNumModes(width: Int) = (new scala.util.Random(width)).nextInt(3) + 1
+
+  it should "do simple additions" in {
+    test(new Wrapper(SimpleWidth, SimpleWidth / 2, getRandNumModes(SimpleWidth)))
+      .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+      simpleTest(dut)
+    }
+  }
+
+  for (width <- CommonWidths) {
+    it should s"do random $width-bit additions" in {
+      test(new Wrapper(width, width / 2, getRandNumModes(width)))
+        .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+        randomTest(dut)
+      }
+    }
+  }
+}

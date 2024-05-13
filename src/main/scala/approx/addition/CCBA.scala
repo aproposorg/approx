@@ -16,7 +16,8 @@ class CCBA(width: Int, val stages: Int, val specWidth: Int) extends Adder(width)
   val stageWidth = width / stages
   require(stageWidth >= 2, "width of stages must be at least 2")
   require(stages < width, "number of stages must be less than the width")
-  require(specWidth <= stageWidth, "number of bits used for speculation must be less than width / stages")
+  require(specWidth <= stageWidth,
+    "number of bits used for speculation must be less than width / stages")
 
   /** Generate a speculative stage carry out
    * 

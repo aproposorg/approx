@@ -239,6 +239,68 @@ class Radix2MultiplierSpecOdd extends Radix2MultiplierSpec {
   allTests(OddWidths)
 }
 
+class AdaptiveRadix2MultiplierSpec extends ExactMultiplierSpec {
+  behavior of "Adaptive Radix-2 Multiplier"
+
+  class Wrapper(aWidth: Int, bWidth: Int, approxWidth: Int,
+                aSigned: Boolean, bSigned: Boolean, numModes: Int)
+    extends Multiplier(aWidth, bWidth) {
+    val aR2mult = Module(
+      new AdaptiveRadix2Multiplier(aWidth, bWidth, approxWidth, aSigned, bSigned, numModes))
+    aR2mult.io.ctrl := 0.U
+    aR2mult.io.a := io.a
+    aR2mult.io.b := io.b
+    io.p := aR2mult.io.p
+  }
+
+  def getRandNumModes(width: Int) = (new scala.util.Random(width)).nextInt(3) + 1
+
+  /** Run a combination of tests for different widths of the first operand */
+  def allTests(widths: List[Int]) = {
+    for (width <- widths) {
+      // Equal widths
+      it should s"do random $width-bit unsigned multiplication" in {
+        test(new Wrapper(width, width, width / 2, false, false, getRandNumModes(width)))
+          .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+          randomUnsignedTest(dut)
+        }
+      }
+
+      it should s"do random $width-bit signed multiplication" in {
+        test(new Wrapper(width, width, width / 2, true, true, getRandNumModes(width)))
+          .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+          randomSignedTest(dut)
+        }
+      }
+
+      // Non-equal widths
+      it should s"do random $width by $SimpleWidth-bit unsigned multiplications" in {
+        test(new Wrapper(width, SimpleWidth, width / 2, false, false, getRandNumModes(width - 1)))
+          .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+          randomUnsignedTest(dut)
+        }
+      }
+
+      it should s"do random $width by $SimpleWidth-bit signed multiplications" in {
+        test(new Wrapper(width, SimpleWidth, width / 2, true, true, getRandNumModes(width + 1)))
+          .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+          randomSignedTest(dut)
+        }
+      }
+    }
+  }
+}
+
+class AdaptiveRadix2MultiplierSpecCommon extends AdaptiveRadix2MultiplierSpec {
+  // Do random tests
+  allTests(CommonWidths)
+}
+
+class AdaptiveRadix2MultiplierSpecOdd extends AdaptiveRadix2MultiplierSpec {
+  // Do random tests
+  allTests(OddWidths)
+}
+
 class Radix4MultiplierSpec extends ExactMultiplierSpec {
   behavior of "Radix-4 Multiplier"
 

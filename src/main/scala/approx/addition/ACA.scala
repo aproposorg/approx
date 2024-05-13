@@ -27,9 +27,12 @@ class ACA(val width: Int, val subWidth: Int) extends Module {
   val stride = subWidth / 2
   val stages = (width / stride) - 1
   require(isPow2(width), "the width must be a power of 2")
-  require(isPow2(subWidth), "the width of the sub-adders must be a power of 2")
-  require(subWidth < width, "the width of the sub-adders must be less than the total width")
-  require(subWidth >= 2, "the width of the sub-adders must be greater than or equal to 2")
+  require(isPow2(subWidth),
+    "the width of the sub-adders must be a power of 2")
+  require(subWidth < width,
+    "the width of the sub-adders must be less than the total width")
+  require(subWidth >= 2,
+    "the width of the sub-adders must be greater than or equal to 2")
 
   val io = IO(new ACAIO(width, stages))
 

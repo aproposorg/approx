@@ -11,8 +11,10 @@ import chisel3._
  * Implementation of the adder from Dalloo [2018]
  */
 class OFLOCA(width: Int, val approxWidth: Int, val constWidth: Int) extends Adder(width) {
-  require(approxWidth <= width, "width of the approximate part must be less than or equal to the total width")
-  require(constWidth <= approxWidth, "width of the constant part must be less than or equal to the approximate width")
+  require(approxWidth <= width,
+    "width of the approximate part must be less than or equal to the total width")
+  require(constWidth <= approxWidth,
+    "width of the constant part must be less than or equal to the approximate width")
   
   val sums = Wire(Vec(width, Bool()))
 
@@ -27,20 +29,20 @@ class OFLOCA(width: Int, val approxWidth: Int, val constWidth: Int) extends Adde
 
   // Generate remaining part of the adder
   val fas = width - approxWidth
-  val adders = Seq.fill(fas) { Module(new FullAdder) }
-  val cins = Wire(Vec(fas + 1, Bool()))
-  cins(0) := io.a(approxWidth-1) & io.b(approxWidth-1)
+  val adders  = Seq.fill(fas) { Module(new FullAdder) }
+  val carries = Wire(Vec(fas + 1, Bool()))
+  carries(0) := io.a(approxWidth-1) & io.b(approxWidth-1)
   (0 until fas).foreach { i =>
     val ind = i + approxWidth
     adders(i).io.x   := io.a(ind)
     adders(i).io.y   := io.b(ind)
-    adders(i).io.cin := cins(i)
+    adders(i).io.cin := carries(i)
     sums(ind) := adders(i).io.s
-    cins(i+1) := adders(i).io.cout
+    carries(i+1) := adders(i).io.cout
   }
-  fb := aNbN | cins(fas)
+  fb := aNbN | carries(fas)
 
   // Combine results and output
   io.s    := sums.asUInt
-  io.cout := cins(fas)
+  io.cout := carries(fas)
 }

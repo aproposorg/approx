@@ -8,7 +8,8 @@ import chisel3._
  * @param approxWidth the width of the approximate part (must be less than or equal to the width)
  */
 class LOA(width: Int, val approxWidth: Int) extends Adder(width) {
-  require(approxWidth <= width, "width of the approximate part must be less than the width")
+  require(approxWidth <= width,
+    "width of the approximate part must be less than the width")
   
   val sums = Wire(Vec(width, Bool()))
 

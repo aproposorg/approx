@@ -5,7 +5,7 @@ import chisel3._
 /** Generic accuracy-configurable approximate adder IO bundle
  * 
  * @param width the width of the adder
- * @param stages the the number of adder stages
+ * @param stages the number of adder stages
  * 
  * Ctrl inputs are used for enabling error correction, stall output indicates error.
  */

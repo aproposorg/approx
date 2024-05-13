@@ -10,7 +10,8 @@ import chisel3._
  * Implementation of the adder from Balasubramian et al. [2020]
  */
 class HOAANED(width: Int, val approxWidth: Int) extends Adder(width) {
-  require(approxWidth <= width, "width of the approximate part must be less than or equal to the total width")
+  require(approxWidth <= width,
+    "width of the approximate part must be less than or equal to the total width")
   val sums = Wire(Vec(width, Bool()))
 
   // Generate constant part

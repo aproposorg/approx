@@ -18,7 +18,8 @@ import chisel3.experimental.ChiselEnum
  * Only works for unsigned numbers.
  */
 class ApproxRadix2SeqMultiplier(width: Int, val approxWidth: Int) extends SeqMultiplier(width) {
-  require(approxWidth <= width, "width of the approximate part must be less than or equal to the total width")
+  require(approxWidth <= width,
+    "width of the approximate part must be less than or equal to the total width")
 
   /** Calculation states of the multiplier */
   private[ApproxRadix2SeqMultiplier] object State extends ChiselEnum {
