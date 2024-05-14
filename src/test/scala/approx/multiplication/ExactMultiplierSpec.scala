@@ -241,6 +241,7 @@ class Radix2MultiplierSpecOdd extends Radix2MultiplierSpec {
 
 class AdaptiveRadix2MultiplierSpec extends ExactMultiplierSpec {
   behavior of "Adaptive Radix-2 Multiplier"
+  val rng = new scala.util.Random(42)
 
   class Wrapper(aWidth: Int, bWidth: Int, approxWidth: Int,
                 aSigned: Boolean, bSigned: Boolean, numModes: Int)
@@ -253,21 +254,24 @@ class AdaptiveRadix2MultiplierSpec extends ExactMultiplierSpec {
     io.p := aR2mult.io.p
   }
 
-  def getRandNumModes(width: Int) = (new scala.util.Random(width)).nextInt(3) + 1
+  def getRandNumModes(width: Int) = {
+    def loop(): LazyList[Int] = (rng.nextInt(3) + 1) #:: loop()
+    loop().collectFirst { case n if (width / n) >= 1 => n }.get
+  }
 
   /** Run a combination of tests for different widths of the first operand */
   def allTests(widths: List[Int]) = {
     for (width <- widths) {
       // Equal widths
       it should s"do random $width-bit unsigned multiplication" in {
-        test(new Wrapper(width, width, width / 2, false, false, getRandNumModes(width)))
+        test(new Wrapper(width, width, width / 2, false, false, getRandNumModes(width / 2)))
           .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
           randomUnsignedTest(dut)
         }
       }
 
       it should s"do random $width-bit signed multiplication" in {
-        test(new Wrapper(width, width, width / 2, true, true, getRandNumModes(width)))
+        test(new Wrapper(width, width, width / 2, true, true, getRandNumModes(width / 2)))
           .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
           randomSignedTest(dut)
         }
@@ -275,14 +279,14 @@ class AdaptiveRadix2MultiplierSpec extends ExactMultiplierSpec {
 
       // Non-equal widths
       it should s"do random $width by $SimpleWidth-bit unsigned multiplications" in {
-        test(new Wrapper(width, SimpleWidth, width / 2, false, false, getRandNumModes(width - 1)))
+        test(new Wrapper(width, SimpleWidth, width / 2, false, false, getRandNumModes(width / 2)))
           .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
           randomUnsignedTest(dut)
         }
       }
 
       it should s"do random $width by $SimpleWidth-bit signed multiplications" in {
-        test(new Wrapper(width, SimpleWidth, width / 2, true, true, getRandNumModes(width + 1)))
+        test(new Wrapper(width, SimpleWidth, width / 2, true, true, getRandNumModes(width / 2)))
           .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
           randomSignedTest(dut)
         }
