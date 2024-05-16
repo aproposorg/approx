@@ -244,10 +244,10 @@ class AdaptiveRadix2MultiplierSpec extends ExactMultiplierSpec {
   val rng = new scala.util.Random(42)
 
   class Wrapper(aWidth: Int, bWidth: Int, approxWidth: Int,
-                aSigned: Boolean, bSigned: Boolean, numModes: Int)
+                aSigned: Boolean, bSigned: Boolean, comp: Boolean, numModes: Int)
     extends Multiplier(aWidth, bWidth) {
     val aR2mult = Module(
-      new AdaptiveRadix2Multiplier(aWidth, bWidth, approxWidth, aSigned, bSigned, numModes))
+      new AdaptiveRadix2Multiplier(aWidth, bWidth, approxWidth, aSigned, bSigned, comp, numModes=numModes))
     aR2mult.io.ctrl := 0.U
     aR2mult.io.a := io.a
     aR2mult.io.b := io.b
@@ -261,32 +261,32 @@ class AdaptiveRadix2MultiplierSpec extends ExactMultiplierSpec {
 
   /** Run a combination of tests for different widths of the first operand */
   def allTests(widths: List[Int]) = {
-    for (width <- widths) {
+    for (width <- widths; comp <- List(false, true)) {
       // Equal widths
-      it should s"do random $width-bit unsigned multiplication" in {
-        test(new Wrapper(width, width, width / 2, false, false, getRandNumModes(width / 2)))
+      it should s"do random $width-bit unsigned multiplication${if (comp) " with compression" else ""}" in {
+        test(new Wrapper(width, width, width / 2, false, false, comp, getRandNumModes(width / 2)))
           .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
           randomUnsignedTest(dut)
         }
       }
 
-      it should s"do random $width-bit signed multiplication" in {
-        test(new Wrapper(width, width, width / 2, true, true, getRandNumModes(width / 2)))
+      it should s"do random $width-bit signed multiplication${if (comp) " with compression" else ""}" in {
+        test(new Wrapper(width, width, width / 2, true, true, comp, getRandNumModes(width / 2)))
           .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
           randomSignedTest(dut)
         }
       }
 
       // Non-equal widths
-      it should s"do random $width by $SimpleWidth-bit unsigned multiplications" in {
-        test(new Wrapper(width, SimpleWidth, width / 2, false, false, getRandNumModes(width / 2)))
+      it should s"do random $width by $SimpleWidth-bit unsigned multiplications${if (comp) " with compression" else ""}" in {
+        test(new Wrapper(width, SimpleWidth, width / 2, false, false, comp, getRandNumModes(width / 2)))
           .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
           randomUnsignedTest(dut)
         }
       }
 
-      it should s"do random $width by $SimpleWidth-bit signed multiplications" in {
-        test(new Wrapper(width, SimpleWidth, width / 2, true, true, getRandNumModes(width / 2)))
+      it should s"do random $width by $SimpleWidth-bit signed multiplications${if (comp) " with compression" else ""}" in {
+        test(new Wrapper(width, SimpleWidth, width / 2, true, true, comp, getRandNumModes(width / 2)))
           .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
           randomSignedTest(dut)
         }
