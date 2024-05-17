@@ -33,22 +33,17 @@ class AdaptiveOFLOCA(val width: Int, val approxWidth: Int, val numModes: Int = 1
 
   val io = IO(new AdaptiveOFLOCAIO(width, numModes))
 
-  val sums    = Wire(Vec(width,   Bool()))
-  val carries = Wire(Vec(width+1, Bool()))
-
   // Instantiate all the full adders
-  val adders = Seq.fill(width) { Module(new FullAdder) }
+  val adders  = Seq.fill(width) { Module(new FullAdder) }
   (0 until width).foreach { i =>
     adders(i).io.x := io.a(i)
     adders(i).io.y := io.b(i)
-    adders(i).io.cin := carries(i)
   }
+
   // Assign the intermediate signals default values from the full adders
-  carries(0) := io.cin
-  (0 until width).foreach { i =>
-    sums(i)      := adders(i).io.s
-    carries(i+1) := adders(i).io.cout
-  }
+  val sums    = WireDefault(VecInit(adders.map(_.io.s)))
+  val carries = WireDefault(VecInit(io.cin +: adders.map(_.io.cout)))
+  (0 until width).foreach { i => adders(i).io.cin := carries(i) }
 
   // Determine the distribution of bits to the different parts in each 
   // approximation mode; 0 meaning fully exact addition
@@ -58,10 +53,9 @@ class AdaptiveOFLOCA(val width: Int, val approxWidth: Int, val numModes: Int = 1
   // bits below then approxWidth'th index and generating aNbN
   val aNbN = WireDefault(false.B)
   val fb   = aNbN | carries(width)
-  modeDists.zipWithIndex.foreach { case (mAWidth, mInd) =>
+  modeDists.zipWithIndex.drop(1).foreach { case (mAWidth, mInd) =>
     val mCWidth = mAWidth / 2
     when(io.ctrl === mInd.U) {
-      // Generate the approximate and constant sum and carry bits
       (0 until mCWidth).foreach { i =>
         sums(i)    := true.B
         carries(i) := false.B
@@ -71,13 +65,6 @@ class AdaptiveOFLOCA(val width: Int, val approxWidth: Int, val numModes: Int = 1
         carries(i) := false.B
       }
       if (mAWidth != 0) aNbN := io.a(mAWidth-1) ^ io.b(mAWidth-1)
-
-      // Fill in the remaining sum and carries with full adders
-      if (mAWidth != 0) carries(mAWidth) := io.a(mAWidth-1) & io.b(mAWidth-1)
-      (mAWidth until approxWidth).foreach { i =>
-        sums(i)      := adders(i).io.s
-        carries(i+1) := adders(i).io.cout
-      }
     }
   }
 
