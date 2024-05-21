@@ -48,7 +48,9 @@ class AdaptiveRadix2Multiplier(val aWidth: Int, val bWidth: Int, val approxWidth
 
   // Determine the number of columns to approximate in each mode; 0 meaning 
   // fully exact multiplication
-  val modeDists = Seq(0) ++ (1 until numModes).map(m => approxWidth / numModes * m) ++ Seq(approxWidth)
+  def log2(x: Double): Double = scala.math.log10(x) / scala.math.log10(2.0)
+  val modeDists = Seq(0) ++ (1 to numModes).map { m =>
+    (approxWidth * log2(m + 1) / log2(numModes + 1)).round.toInt }
 
   // Compute the transmission vector and pick the proper bits for the partial 
   // product generation in the currently selected mode
@@ -295,8 +297,4 @@ class AdaptiveRadix2Multiplier(val aWidth: Int, val bWidth: Int, val approxWidth
       io.p := VecInit(mskdPprods.map(_.asUInt) :+ corr).reduceTree(_ +& _)
     }
   }
-}
-
-object AdaptiveRadix2Multiplier extends App {
-  (new chisel3.stage.ChiselStage).emitVerilog(new AdaptiveRadix2Multiplier(14, 7, 5, comp=true, numModes=2), Array("--target-dir", "build"))
 }
