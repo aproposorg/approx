@@ -52,7 +52,7 @@ private[comptree] class CompressorTree(val sig: Signature, context: Context) ext
   // Select the appropriate set of counters and sort them by the desired 
   // fitness metric
   val isApprox = context.approximations.exists(_.isInstanceOf[Miscounting])
-  private val cntrs = (if (isApprox) context.counters.approxCounters else context.counters.exactCounters)
+  private val counters = (if (isApprox) context.counters.approxCounters else context.counters.exactCounters)
     .sortBy { cntr  => context.metric match {
     case FitnessMetric.Efficiency => cntr.efficiency
     case FitnessMetric.Strength   => cntr.strength
@@ -63,7 +63,7 @@ private[comptree] class CompressorTree(val sig: Signature, context: Context) ext
 
   // Iteratively compress the bit matrix till the compression goal is reached
   private val mtrcs = mutable.ArrayBuffer(inMtrx)
-  while (!mtrcs.last.meetsGoal(context.goal)) mtrcs += compress(mtrcs.last, cntrs)
+  while (!mtrcs.last.meetsGoal(context.goal)) mtrcs += compress(mtrcs.last, counters)
 
   // Perform a final summation and output the result
   io.out := finalSummation(mtrcs.last)
@@ -195,7 +195,7 @@ private[comptree] class CompressorTree(val sig: Signature, context: Context) ext
           case Some(cntr) =>
             state.addCounter(cntr)
 
-            val hwCntr = context.counters.construct(cntr)
+            val hwCntr = context.counters.construct(cntr, state)
 
             // ... inputs first
             hwCntr.io.in := VecInit((0 until cntr.sig._1.length).flatMap { col =>

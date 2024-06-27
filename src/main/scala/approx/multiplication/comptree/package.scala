@@ -1,12 +1,13 @@
 package approx.multiplication
 
 import chisel3.Bool
+import chisel3.experimental.hierarchy.Definition
 
 import scala.collection.mutable
 
 package object comptree {
 
-  import Counters.Counter
+  import Counters.{Counter, HardwareCounter}
 
   /** Compressor approximation styles
    * 
@@ -155,6 +156,9 @@ package object comptree {
       require(_counters.nonEmpty)
       _counters.last(cntr) = _counters.last.getOrElse(cntr, 0) + 1
     }
+
+    /** For hierarchy building */
+    val cntrDefs = mutable.HashMap.empty[String, Definition[HardwareCounter]]
   }
 
   /** Compressor generation context

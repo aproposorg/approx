@@ -2,8 +2,10 @@ package approx.multiplication.comptree
 
 import chisel3._
 import chisel3.util.MixedVec
+import chisel3.experimental.hierarchy.{Definition, Instance, instantiable, public}
 
 import approx.multiplication._
+import approx.multiplication.comptree.State
 
 import approx.util.Xilinx.Common.{genLUT6InitString, genLUT6_2InitString, LUT6, LUT6_2}
 import approx.util.Xilinx.SevenSeries.CARRY4
@@ -81,8 +83,9 @@ private[comptree] object Counters {
    * 
    * Hardware counters are returned from construction.
    */
-  private[Counters] abstract class HardwareCounter(sig: (Array[Int], Array[Int])) extends Module {
-    val io = IO(new Bundle {
+  @instantiable
+  abstract class HardwareCounter(sig: (Array[Int], Array[Int])) extends Module {
+    @public val io = IO(new Bundle {
       val in  = Input(UInt((sig._1.sum).W))
       val out = Output(UInt((sig._2.sum).W))
     })
@@ -106,9 +109,10 @@ private[comptree] object Counters {
     /** Function to construct a counter
      * 
      * @param cntr the counter to construct
+     * @param state the present compressor generator state
      * @return a module representing the counter
      */
-    def construct(cntr: Counter): HardwareCounter
+    def construct(cntr: Counter, state: State): Instance[HardwareCounter]
   }
 
   /** Collection of counters for ASIC
@@ -182,13 +186,13 @@ private[comptree] object Counters {
     )
 
     /** Function to construct a counter */
-    def construct(cntr: Counter): HardwareCounter = {
+    def construct(cntr: Counter, state: State): Instance[HardwareCounter] = {
       /** Generic extension of the hardware counter for returning */
-      class ASICCounter extends HardwareCounter(cntr.sig) {
+      class ASICCounter(counter: Counter) extends HardwareCounter(counter.sig) {
         /** Depending on the counter, we need to instantiate different amounts
          * of logic here. We wrap existing compressor implementations when possible.
          */
-        cntr match {
+        counter match {
           case _: Counter2_11 =>
             val comp = Module(new Compressor2to2)
             comp.io.x1 := io.in(0)
@@ -270,10 +274,15 @@ private[comptree] object Counters {
             comp.io.x8 := io.in(7)
             io.out := comp.io.z2 ## comp.io.z1 ## comp.io.z0
 
-          case _ => throw new IllegalArgumentException(s"cannot generate hardware for unsupported counter ${cntr}")
+          case _ => throw new IllegalArgumentException(s"cannot generate hardware for unsupported counter ${counter}")
         }
       }
-      Module(new ASICCounter)
+
+      // Store a definition of this hardware counter for future reference
+      val cntrName = cntr.getClass().getName()
+      if (!state.cntrDefs.contains(cntrName))
+        state.cntrDefs(cntrName) = Definition(new ASICCounter(cntr))
+      Instance(state.cntrDefs(cntrName))
     }
   }
 
@@ -369,13 +378,13 @@ private[comptree] object Counters {
     )
 
     /** Function to construct a counter */
-    def construct(cntr: Counter): HardwareCounter = {
+    def construct(cntr: Counter, state: State): Instance[HardwareCounter] = {
       /** Generic extension of the hardware counter for returning */
-      class SevenSeriesCounter extends HardwareCounter(cntr.sig) {
+      class SevenSeriesCounter(counter: Counter) extends HardwareCounter(counter.sig) {
         /** Depending on the counter, we need to instantiate different amounts
          * of logic here. Compound counters need CARRY4 primitives.
          */
-        cntr match {
+        counter match {
           case _: Counter2_11 =>
             // Boolean functions for the LUT
             val lutFO5 = (ins: Seq[Boolean]) => ins(0) && ins(1)
@@ -659,10 +668,15 @@ private[comptree] object Counters {
             // Outputs: [c3 = out(4), s3 = out(3), s2 = out(2), s1 = out(1), s0 = out(0)]
             io.out := carry.io.CO(3) ## carry.io.O
 
-          case _ => throw new IllegalArgumentException(s"cannot generate hardware for unsupported counter ${cntr}")
+          case _ => throw new IllegalArgumentException(s"cannot generate hardware for unsupported counter ${counter}")
         }
       }
-      Module(new SevenSeriesCounter)
+
+      // Store a definition of this hardware counter for future reference
+      val cntrName = cntr.getClass().getName()
+      if (!state.cntrDefs.contains(cntrName))
+        state.cntrDefs(cntrName) = Definition(new SevenSeriesCounter(cntr))
+      Instance(state.cntrDefs(cntrName))
     }
   }
 
@@ -739,13 +753,13 @@ private[comptree] object Counters {
     )
 
     /** Function to construct a counter */
-    def construct(cntr: Counter): HardwareCounter = {
+    def construct(cntr: Counter, state: State): Instance[HardwareCounter] = {
       /** Generic extension of the hardware counter for returning */
-      class VersalCounter extends HardwareCounter(cntr.sig) {
+      class VersalCounter(counter: Counter) extends HardwareCounter(counter.sig) {
         /** Depending on the counter, we need to instantiate different amounts
          * of logic here. Compound counters need LOOKAHEAD8 primitives.
          */
-        cntr match {
+        counter match {
           case _: Counter2_11 =>
             // Boolean functions for the LUT
             val lutFO51 = (ins: Seq[Boolean]) => ins(0) && ins(1)
@@ -898,10 +912,15 @@ private[comptree] object Counters {
             // Outputs: [z2 = out(2), z1 = out(1), z0 = out(0)]
             io.out := lutZ.io.O52 ## lutZ.io.O51 ## lutC2.io.O51
 
-          case _ => throw new IllegalArgumentException(s"cannot generate hardware for unsupported counter ${cntr}")
+          case _ => throw new IllegalArgumentException(s"cannot generate hardware for unsupported counter ${counter}")
         }
       }
-      Module(new VersalCounter)
+
+      // Store a definition of this hardware counter for future reference
+      val cntrName = cntr.getClass().getName()
+      if (!state.cntrDefs.contains(cntrName))
+        state.cntrDefs(cntrName) = Definition(new VersalCounter(cntr))
+      Instance(state.cntrDefs(cntrName))
     }
   }
 
@@ -937,13 +956,13 @@ private[comptree] object Counters {
     )
 
     /** Function to construct a counter */
-    def construct(cntr: Counter): HardwareCounter = {
+    def construct(cntr: Counter, state: State): Instance[HardwareCounter] = {
       /** Generic extension of the hardware counter for returning */
-      class IntelCounter extends HardwareCounter(cntr.sig) {
+      class IntelCounter(counter: Counter) extends HardwareCounter(counter.sig) {
         /** Depending on the counter, we need to instantiate different amounts
          * of logic here. We wrap existing compressor implementations when possible.
          */
-        cntr match {
+        counter match {
           case _: Counter2_11 =>
             val comp = Module(new Compressor2to2)
             comp.io.x1 := io.in(0)
@@ -969,10 +988,15 @@ private[comptree] object Counters {
             comp.io.x8 := io.in(7)
             io.out := comp.io.z2 ## comp.io.z1 ## comp.io.z0
 
-          case _ => throw new IllegalArgumentException(s"cannot generate hardware for unsupported counter ${cntr}")
+          case _ => throw new IllegalArgumentException(s"cannot generate hardware for unsupported counter ${counter}")
         }
       }
-      Module(new IntelCounter)
+
+      // Store a definition of this hardware counter for future reference
+      val cntrName = cntr.getClass().getName()
+      if (!state.cntrDefs.contains(cntrName))
+        state.cntrDefs(cntrName) = Definition(new IntelCounter(cntr))
+      Instance(state.cntrDefs(cntrName))
     }
   }
 }
