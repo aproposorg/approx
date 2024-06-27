@@ -1,7 +1,10 @@
 package approx.multiplication.comptree
 
 import chisel3._
+import chisel3.experimental.{annotate, ChiselAnnotation}
 import chisel3.util.experimental.FlattenInstance
+
+import firrtl.DocStringAnnotation
 
 import scala.collection.mutable
 
@@ -33,9 +36,11 @@ object CompressorTree {
  * on the companion object for a simplified interface to this generator.
  * 
  * @todo Update to make use of the state in LUT placement and pipelining.
+ * 
+ * @todo Check if the DocstringAnnotations are consistently removed in Verilog.
  */
 private[comptree] class CompressorTree(val sig: Signature, context: Context) extends Module with FlattenInstance {
-  val state = new State()
+  private val state = new State()
 
   // The sum width from the context or the signature
   val outW = if (context.outW == -1) sig.outW else context.outW
@@ -47,21 +52,39 @@ private[comptree] class CompressorTree(val sig: Signature, context: Context) ext
   // Select the appropriate set of counters and sort them by the desired 
   // fitness metric
   val isApprox = context.approximations.exists(_.isInstanceOf[Miscounting])
-  val cntrs = (if (isApprox) context.counters.approxCounters else context.counters.exactCounters)
+  private val cntrs = (if (isApprox) context.counters.approxCounters else context.counters.exactCounters)
     .sortBy { cntr  => context.metric match {
     case FitnessMetric.Efficiency => cntr.efficiency
     case FitnessMetric.Strength   => cntr.strength
   }}.reverse
 
   // Generate and connect the inputs to a bit matrix
-  val inMtrx = buildMatrix(sig, io.in)
+  private val inMtrx = buildMatrix(sig, io.in)
 
   // Iteratively compress the bit matrix till the compression goal is reached
-  val mtrcs = mutable.ArrayBuffer(inMtrx)
+  private val mtrcs = mutable.ArrayBuffer(inMtrx)
   while (!mtrcs.last.meetsGoal(context.goal)) mtrcs += compress(mtrcs.last, cntrs)
 
   // Perform a final summation and output the result
   io.out := finalSummation(mtrcs.last)
+
+  private val comp = this
+  private val annos = {
+    val pfx = s"Compressor generated with ${state.counters.size} stages:"
+    val cntrs = state.counters
+      .zipWithIndex
+      .map { case (stgCntrs, stg) =>
+        val cntrStr = stgCntrs
+          .map { case (cntr, cnt) => s"$cnt x (${cntr.sig._1.reverse}:${cntr.sig._2.reverse}]" }
+          .mkString(", ")
+        s"  Stage $stg: $cntrStr"
+      }
+      .mkString("\n")
+    s"$pfx\n$cntrs"
+  }
+  annotate(new ChiselAnnotation {
+    override def toFirrtl = DocStringAnnotation(comp.toTarget, annos)
+  })
 
   /** Construct a bit matrix and connect the given bits to it
    * 
@@ -154,8 +177,6 @@ private[comptree] class CompressorTree(val sig: Signature, context: Context) ext
    * below the compression goal)
    */
   private[CompressorTree] def placeLargestCntr(cntrs: Seq[Counter], inBits: BitMatrix, outBits: BitMatrix): Unit = {
-    state.addCounter()
-
     // Find the least significant column that still needs compression
     val lsColOpt = inBits.bits
       .zipWithIndex
@@ -172,6 +193,8 @@ private[comptree] class CompressorTree(val sig: Signature, context: Context) ext
         // Construct the counter and connect it accordingly
         bestCntrOpt match {
           case Some(cntr) =>
+            state.addCounter(cntr)
+
             val hwCntr = context.counters.construct(cntr)
 
             // ... inputs first

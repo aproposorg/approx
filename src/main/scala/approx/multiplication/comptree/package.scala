@@ -6,6 +6,8 @@ import scala.collection.mutable
 
 package object comptree {
 
+  import Counters.Counter
+
   /** Compressor approximation styles
    * 
    * Remember to update domination filtering below in case new approximations 
@@ -35,20 +37,10 @@ package object comptree {
     lazy val count: Int = signature.sum
 
     /** Compute the signature's needed output width */
-    lazy val outW: Int = {
-      // Use BigInts to accumulate over the signature
-      var sum = signature.zipWithIndex.foldLeft(BigInt(0)) { case (acc, (count, log2Weight)) =>
-        acc + Array.fill(count) { BigInt(0).setBit(log2Weight) }.sum
-      }
-
-      // Return the MSB's position
-      var pos = 0
-      while (sum > 0) {
-        pos  += 1
-        sum >>= 1
-      }
-      pos
-    }
+    lazy val outW: Int = signature.zipWithIndex
+      .map { case (count, log2Weight) => BigInt(count) << log2Weight }
+      .sum
+      .bitLength
   }
 
   /** Compressor tree string signature
@@ -150,16 +142,18 @@ package object comptree {
    * when generating compressors for FPGAs.
    */
   private[comptree] class State {
-    var stages:   Int = 0
-    var counters: mutable.ArrayBuffer[Int] = mutable.ArrayBuffer.empty[Int]
+    private val _counters = mutable.ArrayBuffer.empty[mutable.HashMap[Counter, Int]]
+
+    /** Return the counters */
+    def counters = _counters.map(_.toMap).toSeq
 
     /** Add a stage */
-    def addStage(): Unit = stages += 1
+    def addStage(): Unit = _counters.append(mutable.HashMap.empty[Counter, Int])
 
     /** Add a counter to this stage */
-    def addCounter(): Unit = {
-      counters.addAll(Array.fill(stages - counters.length + 1)(0))
-      counters(stages) += 1
+    def addCounter(cntr: Counter): Unit = {
+      require(_counters.nonEmpty)
+      _counters.last(cntr) = _counters.last.getOrElse(cntr, 0) + 1
     }
   }
 
