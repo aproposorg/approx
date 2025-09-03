@@ -50,7 +50,6 @@ class AdaptiveOFLOCA(val width: Int, val approxWidth: Int, val numModes: Int = 1
   def log2(x: Double): Double = scala.math.log10(x) / scala.math.log10(2.0)
   val modeDists = Seq(0) ++ (1 to numModes).map { m =>
     (approxWidth * log2(m + 1) / log2(numModes + 1)).round.toInt }
-  println(modeDists.mkString("[", ", ", "]"))
 
   // Now generate the adder parts by "filling in" the required sum and carry 
   // bits below then approxWidth'th index and generating aNbN

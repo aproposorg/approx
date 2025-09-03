@@ -2,13 +2,12 @@ package approx.addition
 
 import chisel3._
 import chisel3.util.log2Up
-
-import chiseltest._
+import chisel3.simulator.scalatest.ChiselSim
 
 import org.scalatest.flatspec.AnyFlatSpec
 
 /** Common test patterns for exact adders */
-trait ExactAdderSpec extends AnyFlatSpec with ChiselScalatestTester {
+trait ExactAdderSpec extends AnyFlatSpec with ChiselSim {
   val SimpleWidth  = 8
   val CommonWidths = List(4, 8, 16, 32)
 
@@ -94,16 +93,14 @@ class RCASpec extends ExactAdderSpec {
   behavior of "Ripple-Carry Adder"
 
   it should "do simple additions" in {
-    test(new RCA(SimpleWidth))
-      .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+    simulate(new RCA(SimpleWidth)) { dut =>
       simpleTest(dut)
     }
   }
 
   for (width <- CommonWidths) {
     it should s"do random $width-bit additions" in {
-      test(new RCA(width))
-        .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+      simulate(new RCA(width)) { dut =>
         randomTest(dut)
       }
     }
@@ -114,16 +111,14 @@ class BlackboxRCASpec extends ExactAdderSpec {
   behavior of "Blackboxed Ripple-Carry Adder"
 
   it should "do simple additions" in {
-    test(new BlackboxRCA(SimpleWidth))
-      .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+    simulate(new BlackboxRCA(SimpleWidth)) { dut =>
       simpleTest(dut)
     }
   }
 
   for (width <- CommonWidths) {
     it should s"do random $width-bit additions" in {
-      test(new BlackboxRCA(width))
-        .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+      simulate(new BlackboxRCA(width)) { dut =>
         randomTest(dut)
       }
     }
@@ -134,16 +129,14 @@ class CLASpec extends ExactAdderSpec {
   behavior of "Carry Look-ahead Adder"
 
   it should "do simple additions" in {
-    test(new CLA(SimpleWidth, 2))
-      .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+    simulate(new CLA(SimpleWidth, 2)) { dut =>
       simpleTest(dut)
     }
   }
 
   for (width <- CommonWidths) {
     it should s"do random $width-bit additions" in {
-      test(new CLA(width, width / 4))
-        .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+      simulate(new CLA(width, width / 4)) { dut =>
         randomTest(dut)
       }
     }
@@ -154,16 +147,14 @@ class CLA2Spec extends ExactAdderSpec {
   behavior of "Two-layer Carry Look-ahead Adder"
 
   it should "do simple additions" in {
-    test(new CLA2(SimpleWidth, (4, 2)))
-      .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+    simulate(new CLA2(SimpleWidth, (4, 2))) { dut =>
       simpleTest(dut)
     }
   }
 
   for (width <- CommonWidths) {
     it should s"do random $width-bit additions" in {
-      test(new CLA2(width, (width / 4, if (width / 8 == 0) 1 else width / 8)))
-        .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+      simulate(new CLA2(width, (width / 4, if (width / 8 == 0) 1 else width / 8))) { dut =>
         randomTest(dut)
       }
     }
@@ -174,16 +165,14 @@ class CSASpec extends ExactAdderSpec {
   behavior of "Carry-Skip Adder"
 
   it should "do simple additions" in {
-    test(new CSA(SimpleWidth, 2))
-      .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+    simulate(new CSA(SimpleWidth, 2)) { dut =>
       simpleTest(dut)
     }
   }
 
   for (width <- CommonWidths) {
     it should s"do random $width-bit additions" in {
-      test(new CSA(width, width / 4))
-        .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+      simulate(new CSA(width, width / 4)) { dut =>
         randomTest(dut)
       }
     }
@@ -194,16 +183,14 @@ class BrentKungPPASpec extends ExactAdderSpec {
   behavior of "Brent-Kung Parallel Prefix Adder"
 
   it should "do simple additions" in {
-    test(new BrentKungPPA(SimpleWidth))
-      .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+    simulate(new BrentKungPPA(SimpleWidth)) { dut =>
       simpleTest(dut)
     }
   }
 
   for (width <- CommonWidths) {
     it should s"do random $width-bit additions" in {
-      test(new BrentKungPPA(width))
-        .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+      simulate(new BrentKungPPA(width)) { dut =>
         randomTest(dut)
       }
     }
@@ -214,16 +201,14 @@ class KoggeStonePPASpec extends ExactAdderSpec {
   behavior of "Kogge-Stone Parallel Prefix Adder"
 
   it should "do simple additions" in {
-    test(new KoggeStonePPA(SimpleWidth))
-      .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+    simulate(new KoggeStonePPA(SimpleWidth)) { dut =>
       simpleTest(dut)
     }
   }
 
   for (width <- CommonWidths) {
     it should s"do random $width-bit additions" in {
-      test(new KoggeStonePPA(width))
-        .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+      simulate(new KoggeStonePPA(width)) { dut =>
         randomTest(dut)
       }
     }
@@ -234,16 +219,14 @@ class SklanskyPPASpec extends ExactAdderSpec {
   behavior of "Sklansky Parallel Prefix Adder"
 
   it should "do simple additions" in {
-    test(new SklanskyPPA(SimpleWidth))
-      .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+    simulate(new SklanskyPPA(SimpleWidth)) { dut =>
       simpleTest(dut)
     }
   }
 
   for (width <- CommonWidths) {
     it should s"do random $width-bit additions" in {
-      test(new SklanskyPPA(width))
-        .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+      simulate(new SklanskyPPA(width)) { dut =>
         randomTest(dut)
       }
     }
@@ -254,16 +237,14 @@ class LadnerFischerPPASpec extends ExactAdderSpec {
   behavior of "Ladner-Fischer Parallel Prefix Adder"
 
   it should "do simple additions" in {
-    test(new LadnerFischerPPA(SimpleWidth))
-      .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+    simulate(new LadnerFischerPPA(SimpleWidth)) { dut =>
       simpleTest(dut)
     }
   }
 
   for (width <- CommonWidths) {
     it should s"do random $width-bit additions" in {
-      test(new LadnerFischerPPA(width))
-        .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+      simulate(new LadnerFischerPPA(width)) { dut =>
         randomTest(dut)
       }
     }
@@ -286,16 +267,14 @@ class AdaptiveOFLOCASpec extends ExactAdderSpec {
   def getRandNumModes(width: Int) = (new scala.util.Random(width)).nextInt(3) + 1
 
   it should "do simple additions" in {
-    test(new Wrapper(SimpleWidth, SimpleWidth / 2, getRandNumModes(SimpleWidth)))
-      .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+    simulate(new Wrapper(SimpleWidth, SimpleWidth / 2, getRandNumModes(SimpleWidth))) { dut =>
       simpleTest(dut)
     }
   }
 
   for (width <- CommonWidths) {
     it should s"do random $width-bit additions" in {
-      test(new Wrapper(width, width / 2, getRandNumModes(width)))
-        .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+      simulate(new Wrapper(width, width / 2, getRandNumModes(width))) { dut =>
         randomTest(dut)
       }
     }

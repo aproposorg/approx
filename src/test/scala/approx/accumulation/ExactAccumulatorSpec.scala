@@ -1,9 +1,7 @@
 package approx.accumulation
 
 import chisel3._
-
-import chiseltest._
-
+import chisel3.simulator.scalatest.ChiselSim
 import org.scalatest.flatspec.AnyFlatSpec
 
 import approx.multiplication.comptree.Signature
@@ -12,7 +10,7 @@ import approx.multiplication.comptree.Signature
  * 
  * @todo Extend all these with support for pipelining!
  */
-abstract trait ExactAccumulatorSpec extends AnyFlatSpec with ChiselScalatestTester {
+abstract trait ExactAccumulatorSpec extends AnyFlatSpec with ChiselSim {
   val CommonWidths = List(4, 8, 16, 32)
   val OddWidths    = List(5, 13, 29)
 
@@ -151,15 +149,13 @@ class SimpleAccumulatorSpec extends SASpec {
 
   for (width <- CommonWidths ++ OddWidths) {
     it should s"do random $width-bit unsigned accumulation" in {
-      test(new SimpleAccumulator(width-3, width))
-        .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+      simulate(new SimpleAccumulator(width-3, width)) { dut =>
         randomUnsignedTest(dut)
       }
     }
 
     it should s"do random $width-bit signed accumulation" in {
-      test(new SimpleAccumulator(width-3, width, true))
-        .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+      simulate(new SimpleAccumulator(width-3, width, true)) { dut =>
         randomSignedTest(dut)
       }
     }
@@ -171,15 +167,13 @@ class ParallelSimpleAccumulatorSpec extends SASpec {
 
   for (width <- CommonWidths ++ OddWidths) {
     it should s"do random $width-bit unsigned accumulation" in {
-      test(new ParallelSimpleAccumulator(width / 2, width-3, width))
-        .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+      simulate(new ParallelSimpleAccumulator(width / 2, width-3, width)) { dut =>
         randomUnsignedTest(dut)
       }
     }
 
     it should s"do random $width-bit signed accumulation" in {
-      test(new ParallelSimpleAccumulator(width / 2, width-3, width, true))
-        .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+      simulate(new ParallelSimpleAccumulator(width / 2, width-3, width, true)) { dut =>
         randomSignedTest(dut)
       }
     }
@@ -327,13 +321,13 @@ class MultiplyAccumulatorSpec extends MACSpec {
 
   for (width <- CommonWidths ++ OddWidths) {
     it should s"do random $width-bit unsigned accumulation" in {
-      test(new MultiplyAccumulator(width-3, width)) { dut =>
+      simulate(new MultiplyAccumulator(width-3, width)) { dut =>
         randomUnsignedTest(dut)
       }
     }
 
     it should s"do random $width-bit signed accumulation" in {
-      test(new MultiplyAccumulator(width-3, width, true)) { dut =>
+      simulate(new MultiplyAccumulator(width-3, width, true)) { dut =>
         randomSignedTest(dut)
       }
     }
@@ -347,15 +341,13 @@ class ParallelMultiplyAccumulatorSpec extends MACSpec {
   // long execution times otherwise
   for (width <- CommonWidths ++ OddWidths) {
     it should s"do random $width-bit unsigned accumulation" in {
-      test(new ParallelMultiplyAccumulator(width / 2, width-3, width))
-        .withAnnotations(Seq(VerilatorBackendAnnotation)) { dut =>
+      simulate(new ParallelMultiplyAccumulator(width / 2, width-3, width)) { dut =>
         randomUnsignedTest(dut)
       }
     }
 
     it should s"do random $width-bit signed accumulation" in {
-      test(new ParallelMultiplyAccumulator(width / 2, width-3, width, true))
-        .withAnnotations(Seq(VerilatorBackendAnnotation)) { dut =>
+      simulate(new ParallelMultiplyAccumulator(width / 2, width-3, width, true)) { dut =>
         randomSignedTest(dut)
       }
     }
@@ -426,13 +418,12 @@ trait MxACSpec extends ExactAccumulatorSpec {
 
 class BitMatrixAccumulatorSpec extends MxACSpec {
   behavior of "Bit Matrix Accumulator"
-  implicit val rng = new scala.util.Random(0)
+  val rng = new scala.util.Random(0)
 
   for (width <- CommonWidths ++ OddWidths) {
     it should s"do random $width-bit accumulation" in {
       val sig = new Signature(Array.fill(width)(rng.nextInt(2 * width)))
-      test(new BitMatrixAccumulator(sig, width))
-        .withAnnotations(Seq(VerilatorBackendAnnotation)) { dut =>
+      simulate(new BitMatrixAccumulator(sig, width)) { dut =>
         randomTest(dut)
       }
     }

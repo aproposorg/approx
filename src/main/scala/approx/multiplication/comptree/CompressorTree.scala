@@ -1,10 +1,7 @@
 package approx.multiplication.comptree
 
 import chisel3._
-import chisel3.experimental.{annotate, ChiselAnnotation}
 import chisel3.util.experimental.FlattenInstance
-
-import firrtl.DocStringAnnotation
 
 import scala.collection.mutable
 
@@ -36,8 +33,6 @@ object CompressorTree {
  * on the companion object for a simplified interface to this generator.
  * 
  * @todo Update to make use of the state in LUT placement and pipelining.
- * 
- * @todo Check if the DocstringAnnotations are consistently removed in Verilog.
  */
 private[comptree] class CompressorTree(val sig: Signature, context: Context) extends Module with FlattenInstance {
   private val state = new State()
@@ -68,24 +63,6 @@ private[comptree] class CompressorTree(val sig: Signature, context: Context) ext
   // Perform a final summation and output the result
   io.out := finalSummation(mtrcs.last)
 
-  private val comp = this
-  private val annos = {
-    val pfx = s"Compressor generated with ${state.counters.size} stages:"
-    val cntrs = state.counters
-      .zipWithIndex
-      .map { case (stgCntrs, stg) =>
-        val cntrStr = stgCntrs
-          .map { case (cntr, cnt) => s"$cnt x (${cntr.sig._1.reverse}:${cntr.sig._2.reverse}]" }
-          .mkString(", ")
-        s"  Stage $stg: $cntrStr"
-      }
-      .mkString("\n")
-    s"$pfx\n$cntrs"
-  }
-  annotate(new ChiselAnnotation {
-    override def toFirrtl = DocStringAnnotation(comp.toTarget, annos)
-  })
-
   /** Construct a bit matrix and connect the given bits to it
    * 
    * @param signature the signature of the matrix
@@ -109,7 +86,7 @@ private[comptree] class CompressorTree(val sig: Signature, context: Context) ext
       // Then apply OR compression
       val orWidth = context.approximations.collect { case or: ORCompression =>
         for (log2Weight <- ctWidth until or.width) {
-          res.insertBit(bits(ind + signature(log2Weight) - 1, ind).orR(), log2Weight)
+          res.insertBit(bits(ind + signature(log2Weight) - 1, ind).orR, log2Weight)
           ind += signature(log2Weight)
         }
         or.width

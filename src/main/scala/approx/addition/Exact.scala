@@ -72,7 +72,7 @@ private[addition] class CarryGen(width: Int) extends Module {
   val cs = Wire(Vec(width+1, Bool()))
   cs(0) := io.cin
   (0 until width).foreach { i => cs(i+1) := io.g(i) | (io.p(i) & cs(i)) }
-  io.carries := cs.asUInt()(width-1, 0)
+  io.carries := cs.asUInt(width-1, 0)
   io.cout    := cs(width)
 }
 

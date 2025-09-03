@@ -2,15 +2,14 @@ package approx.multiplication
 
 import chisel3._
 import chisel3.util.log2Up
-
-import chiseltest._
+import chisel3.simulator.scalatest.ChiselSim
 
 import org.scalatest.flatspec.AnyFlatSpec
 
 import approx.multiplication.comptree.{Approximation, ColumnTruncation, Miscounting, ORCompression, RowTruncation}
 
 /** Common test patterns for exact multipliers */
-trait ExactMultiplierSpec extends AnyFlatSpec with ChiselScalatestTester {
+trait ExactMultiplierSpec extends AnyFlatSpec with ChiselSim {
   val SimpleWidth  = 8
   val CommonWidths = List(4, 8, 16, 32)
   val OddWidths    = List(5, 13, 29)
@@ -186,15 +185,13 @@ class Radix2MultiplierSpec extends ExactMultiplierSpec {
       }
 
       it should s"do random $width-bit unsigned multiplication" in {
-        test(new Radix2Multiplier(width, width))
-          .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+        simulate(new Radix2Multiplier(width, width)) { dut =>
           randomUnsignedTest(dut)
         }
       }
 
       it should s"do random $width-bit signed multiplication" in {
-        test(new Radix2Multiplier(width, width, true, true))
-          .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+        simulate(new Radix2Multiplier(width, width, true, true)) { dut =>
           randomSignedTest(dut)
         }
       }
@@ -205,15 +202,13 @@ class Radix2MultiplierSpec extends ExactMultiplierSpec {
       }
 
       it should s"do random $width by $SimpleWidth-bit unsigned multiplications" in {
-        test(new Radix2Multiplier(width, SimpleWidth))
-          .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+        simulate(new Radix2Multiplier(width, SimpleWidth)) { dut =>
           randomUnsignedTest(dut)
         }
       }
 
       it should s"do random $width by $SimpleWidth-bit signed multiplications" in {
-        test(new Radix2Multiplier(width, SimpleWidth, true, true))
-          .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+        simulate(new Radix2Multiplier(width, SimpleWidth, true, true)) { dut =>
           randomSignedTest(dut)
         }
       }
@@ -224,8 +219,7 @@ class Radix2MultiplierSpec extends ExactMultiplierSpec {
 class Radix2MultiplierSpecCommon extends Radix2MultiplierSpec {
   // Do simple and random tests
   it should "do simple multiplications" in {
-    test(new Radix2Multiplier(SimpleWidth, SimpleWidth))
-      .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+    simulate(new Radix2Multiplier(SimpleWidth, SimpleWidth)) { dut =>
       simpleTest(dut)
     }
   }
@@ -264,30 +258,26 @@ class AdaptiveRadix2MultiplierSpec extends ExactMultiplierSpec {
     for (width <- widths; comp <- List(false, true)) {
       // Equal widths
       it should s"do random $width-bit unsigned multiplication${if (comp) " with compression" else ""}" in {
-        test(new Wrapper(width, width, width / 2, false, false, comp, getRandNumModes(width / 2)))
-          .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+        simulate(new Wrapper(width, width, width / 2, false, false, comp, getRandNumModes(width / 2))) { dut =>
           randomUnsignedTest(dut)
         }
       }
 
       it should s"do random $width-bit signed multiplication${if (comp) " with compression" else ""}" in {
-        test(new Wrapper(width, width, width / 2, true, true, comp, getRandNumModes(width / 2)))
-          .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+        simulate(new Wrapper(width, width, width / 2, true, true, comp, getRandNumModes(width / 2))) { dut =>
           randomSignedTest(dut)
         }
       }
 
       // Non-equal widths
       it should s"do random $width by $SimpleWidth-bit unsigned multiplications${if (comp) " with compression" else ""}" in {
-        test(new Wrapper(width, SimpleWidth, width / 2, false, false, comp, getRandNumModes(width / 2)))
-          .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+        simulate(new Wrapper(width, SimpleWidth, width / 2, false, false, comp, getRandNumModes(width / 2))) { dut =>
           randomUnsignedTest(dut)
         }
       }
 
       it should s"do random $width by $SimpleWidth-bit signed multiplications${if (comp) " with compression" else ""}" in {
-        test(new Wrapper(width, SimpleWidth, width / 2, true, true, comp, getRandNumModes(width / 2)))
-          .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+        simulate(new Wrapper(width, SimpleWidth, width / 2, true, true, comp, getRandNumModes(width / 2))) { dut =>
           randomSignedTest(dut)
         }
       }
@@ -326,15 +316,13 @@ class Radix4MultiplierSpec extends ExactMultiplierSpec {
       }
 
       it should s"do random $width-bit unsigned multiplication" in {
-        test(new Radix4Multiplier(width, width))
-          .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+        simulate(new Radix4Multiplier(width, width)) { dut =>
           randomUnsignedTest(dut)
         }
       }
 
       it should s"do random $width-bit signed multiplication" in {
-        test(new Radix4Multiplier(width, width, true, true))
-          .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+        simulate(new Radix4Multiplier(width, width, true, true)) { dut =>
           randomSignedTest(dut)
         }
       }
@@ -345,15 +333,13 @@ class Radix4MultiplierSpec extends ExactMultiplierSpec {
       }
 
       it should s"do random $width by $SimpleWidth-bit unsigned multiplications" in {
-        test(new Radix4Multiplier(width, SimpleWidth))
-          .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+        simulate(new Radix4Multiplier(width, SimpleWidth)) { dut =>
           randomUnsignedTest(dut)
         }
       }
 
       it should s"do random $width by $SimpleWidth-bit signed multiplications" in {
-        test(new Radix4Multiplier(width, SimpleWidth, true, true))
-          .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+        simulate(new Radix4Multiplier(width, SimpleWidth, true, true)) { dut =>
           randomSignedTest(dut)
         }
       }
@@ -364,8 +350,7 @@ class Radix4MultiplierSpec extends ExactMultiplierSpec {
 class Radix4MultiplierSpecCommon extends Radix4MultiplierSpec {
   // Do simple and random tests
   it should "do simple multiplications" in {
-    test(new Radix4Multiplier(SimpleWidth, SimpleWidth))
-      .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+    simulate(new Radix4Multiplier(SimpleWidth, SimpleWidth)) { dut =>
       simpleTest(dut)
     }
   }
@@ -384,27 +369,24 @@ class RecursiveMultiplierSpec extends ExactMultiplierSpec {
 
   // Do simple and random tests
   it should "do simple multiplications" in {
-    test(new RecursiveMultiplier(SimpleWidth))
-      .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+    simulate(new RecursiveMultiplier(SimpleWidth)) { dut =>
       simpleTest(dut)
     }
   }
 
   for (width <- CommonWidths ++ OddWidths) {
     it should s"generate with width=$width inexact 2x2 multipliers in the ${width/2} LSBs" in {
-      test(new RecursiveMultiplier(width, width/2)) { dut => }
+      simulate(new RecursiveMultiplier(width, width/2)) { dut => }
     }
 
     it should s"do random $width-bit unsigned multiplications" in {
-      test(new RecursiveMultiplier(width))
-        .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+      simulate(new RecursiveMultiplier(width)) { dut =>
         randomUnsignedTest(dut)
       }
     }
 
     it should s"do random $width-bit signed multiplications" in {
-      test(new RecursiveMultiplier(width, signed=true))
-        .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+      simulate(new RecursiveMultiplier(width, signed=true)) { dut =>
         randomSignedTest(dut)
       }
     }
@@ -416,23 +398,20 @@ class AlphabetSetMultiplierSpec extends ExactMultiplierSpec {
 
   // Do simple and random tests
   it should "do simple multiplications" in {
-    test(new AlphabetSetMultiplier(SimpleWidth))
-      .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+    simulate(new AlphabetSetMultiplier(SimpleWidth)) { dut =>
       simpleTest(dut)
     }
   }
 
   for (width <- CommonWidths) {
     it should s"do random $width-bit unsigned multiplications" in {
-      test(new AlphabetSetMultiplier(width))
-        .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+      simulate(new AlphabetSetMultiplier(width)) { dut =>
         randomUnsignedTest(dut)
       }
     }
 
     it should s"do random $width-bit signed multiplications" in {
-      test(new AlphabetSetMultiplier(width, true))
-        .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+      simulate(new AlphabetSetMultiplier(width, true)) { dut =>
         randomSignedTest(dut)
       }
     }

@@ -63,7 +63,7 @@ class ErrorResilientCorrect(width: Int, val approxWidth: Int) extends Adder(widt
   val am1s  = io.a(approxWidth-1, 0) ## false.B
   val efs   = Wire(Vec(approxWidth, Bool()))
   val cSums = Wire(Vec(approxWidth, Bool()))
-  cSums := adderSums.asUInt()(approxWidth+1, 1).asTypeOf(cSums)
+  cSums := adderSums.asUInt(approxWidth+1, 1).asTypeOf(cSums)
   val sums  = Wire(Vec(width, Bool()))
   sums(0) := adderSums(0)
   (0 until approxWidth).foreach { i =>

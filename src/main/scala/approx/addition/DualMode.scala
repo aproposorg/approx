@@ -43,16 +43,14 @@ class DualModeDecoder(width: Int) extends Module {
 class DualModeRCA(width: Int) extends Module {
   val io = IO(new DualModeIO(width))
 
-  /** DMFA dual-mode approximate full-adder IO bundle */
-  private[DualModeRCA] class DMFAIO extends FAIO {
-    val app = Input(Bool())
-  }
-
   /** DMFA dual-mode approximate full-adder */
-  private[DualModeRCA] class DMFA extends Module {
-    val io = IO(new DMFAIO)
-    io.s := Mux(io.app, io.y, io.x ^ io.y ^ io.cin)
-    io.cout := Mux(io.app, io.x, (io.x & io.y) | (io.x & io.cin) | (io.y & io.cin))
+  private[DualModeRCA] class DMFA extends RawModule {
+    class DMFAIO extends FAIO {
+      val app = Input(Bool())
+    }
+    val dmfaio = IO(new DMFAIO)
+    dmfaio.s := Mux(dmfaio.app, dmfaio.y, dmfaio.x ^ dmfaio.y ^ dmfaio.cin)
+    dmfaio.cout := Mux(dmfaio.app, dmfaio.x, (dmfaio.x & dmfaio.y) | (dmfaio.x & dmfaio.cin) | (dmfaio.y & dmfaio.cin))
   }
 
   // Instantiate a decoder
@@ -65,12 +63,12 @@ class DualModeRCA(width: Int) extends Module {
   couts(0) := io.cin
   (0 until width).foreach { i =>
     val fa = Module(new DMFA)
-    fa.io.x    := io.a(i)
-    fa.io.y    := io.b(i)
-    fa.io.cin  := couts(i)
-    fa.io.app  := dec.io.ctrl(i)
-    sums(i)    := fa.io.s
-    couts(i+1) := fa.io.cout
+    fa.dmfaio.x    := io.a(i)
+    fa.dmfaio.y    := io.b(i)
+    fa.dmfaio.cin  := couts(i)
+    fa.dmfaio.app  := dec.io.ctrl(i)
+    sums(i)    := fa.dmfaio.s
+    couts(i+1) := fa.dmfaio.cout
   }
 
   // Combine results and output
@@ -90,38 +88,38 @@ class DualModeCLA(width: Int) extends Module {
   val io = IO(new DualModeIO(width))
 
   /** CLB dual-mode carry look-ahead block abstract class */
-  private[DualModeCLA] abstract class DMCLB extends Module {
+  private[DualModeCLA] abstract class DMCLB extends RawModule {
     class CLBIO extends FAIO {
       val app = Input(Bool())
       val p   = Output(Bool())
       val g   = Output(Bool())
     }
-    val io = IO(new CLBIO)
+    val clbio = IO(new CLBIO)
   }
 
   /** DMCLB dual-mode carry look-ahead block ver. 1 */
   private[DualModeCLA] class DMCLB1 extends DMCLB {
-    val p = io.x ^ io.y
-    val g = io.x & io.y
-    io.s    := Mux(io.app, io.y, p ^ io.cin)
-    io.cout := Mux(io.app, io.x, g | (p & io.cin))
-    io.p    := Mux(io.app, io.y, p)
-    io.g    := Mux(io.app, io.x, g)
+    val p = clbio.x ^ clbio.y
+    val g = clbio.x & clbio.y
+    clbio.s    := Mux(clbio.app, clbio.y, p ^ clbio.cin)
+    clbio.cout := Mux(clbio.app, clbio.x, g | (p & clbio.cin))
+    clbio.p    := Mux(clbio.app, clbio.y, p)
+    clbio.g    := Mux(clbio.app, clbio.x, g)
   }
 
   /** DMCLB dual-mode carry look-ahead block ver. 2 */
   private[DualModeCLA] class DMCLB2 extends DMCLB {
-    val p = io.x ^ io.y
-    val g = io.x & io.y
-    io.s    := Mux(io.app, io.y, p ^ io.cin)
-    io.cout := false.B
-    io.p    := Mux(io.app, io.y, p)
-    io.g    := Mux(io.app, io.x, g)
+    val p = clbio.x ^ clbio.y
+    val g = clbio.x & clbio.y
+    clbio.s    := Mux(clbio.app, clbio.y, p ^ clbio.cin)
+    clbio.cout := false.B
+    clbio.p    := Mux(clbio.app, clbio.y, p)
+    clbio.g    := Mux(clbio.app, clbio.x, g)
   }
 
   /** PGB dual-mode generate and propagate block abstract class */
   private[DualModeCLA] abstract class DMPGB extends Module {
-    val io = IO(new Bundle {
+    class PGBIO extends Bundle {
       val app  = Input(Bool())
       val pI   = Input(Vec(2, Bool()))
       val gI   = Input(Vec(2, Bool()))
@@ -129,25 +127,26 @@ class DualModeCLA(width: Int) extends Module {
       val pO   = Output(Bool())
       val gO   = Output(Bool())
       val cout = Output(Bool())
-    })
+    }
+    val pgbio = IO(new PGBIO)
   }
 
   /** CMPGB dual-mode generate and propagate block ver. 1 */
   private[DualModeCLA] class DMPGB1 extends DMPGB {
-    val p  = io.pI.asUInt.andR
-    val g  = io.gI(1) | (io.gI(0) & io.pI(1))
-    io.cout := g | (p & io.cin)
-    io.pO := Mux(io.app, io.pI(0), p)
-    io.gO := Mux(io.app, io.gI(1), g)
+    val p  = pgbio.pI.asUInt.andR
+    val g  = pgbio.gI(1) | (pgbio.gI(0) & pgbio.pI(1))
+    pgbio.cout := g | (p & pgbio.cin)
+    pgbio.pO := Mux(pgbio.app, pgbio.pI(0), p)
+    pgbio.gO := Mux(pgbio.app, pgbio.gI(1), g)
   }
 
   /** CMPGB dual-mode generate and propagate block ver. 2 */
   private[DualModeCLA] class DMPGB2 extends DMPGB {
-    val p  = io.pI.asUInt.andR
-    val g  = io.gI(1) | (io.gI(0) & io.pI(1))
-    io.cout := false.B
-    io.pO := Mux(io.app, io.pI(0), p)
-    io.gO := Mux(io.app, io.gI(1), g)
+    val p  = pgbio.pI.asUInt.andR
+    val g  = pgbio.gI(1) | (pgbio.gI(0) & pgbio.pI(1))
+    pgbio.cout := false.B
+    pgbio.pO := Mux(pgbio.app, pgbio.pI(0), p)
+    pgbio.gO := Mux(pgbio.app, pgbio.gI(1), g)
   }
 
   // Instantiate a decoder
@@ -164,16 +163,16 @@ class DualModeCLA(width: Int) extends Module {
   // ... first using CLB blocks
   (0 until width).foreach { i => 
     val clb = if ((i & 1) == 1) Module(new DMCLB2) else Module(new DMCLB1)
-    clb.io.x   := io.a(i)
-    clb.io.y   := io.b(i)
-    clb.io.cin := couts(i)
-    clb.io.app := dec.io.ctrl(i)
+    clb.clbio.x   := io.a(i)
+    clb.clbio.y   := io.b(i)
+    clb.clbio.cin := couts(i)
+    clb.clbio.app := dec.io.ctrl(i)
     if ((i & 1) == 0) {
-      couts(i+1) := clb.io.cout
+      couts(i+1) := clb.clbio.cout
     }
-    sums(i)     := clb.io.s
-    gens(0)(i)  := clb.io.g
-    props(0)(i) := clb.io.p
+    sums(i)     := clb.clbio.s
+    gens(0)(i)  := clb.clbio.g
+    props(0)(i) := clb.clbio.p
   }
 
   // ... and next using PGB blocks
@@ -184,21 +183,21 @@ class DualModeCLA(width: Int) extends Module {
       val pgb = if ((block & 1) == 1) Module(new DMPGB2) else Module(new DMPGB1)
       // Calculate top and bottom indices of (p,g) signals from previous layer
       val (top, bot) = (block * 2, (block * 2) + 1)
-      pgb.io.gI(0) := gens(layer-1)(bot)
-      pgb.io.gI(1) := gens(layer-1)(top)
-      pgb.io.pI(0) := props(layer-1)(bot)
-      pgb.io.pI(1) := props(layer-1)(top)
-      pgb.io.app := dec.io.ctrl(weight-1)
+      pgb.pgbio.gI(0) := gens(layer-1)(bot)
+      pgb.pgbio.gI(1) := gens(layer-1)(top)
+      pgb.pgbio.pI(0) := props(layer-1)(bot)
+      pgb.pgbio.pI(1) := props(layer-1)(top)
+      pgb.pgbio.app := dec.io.ctrl(weight-1)
       // Judging by fig. 8 in the paper, only index-0 blocks have carry-in
       if (block == 0)
-        pgb.io.cin := couts(0)
+        pgb.pgbio.cin := couts(0)
       else
-        pgb.io.cin := false.B
+        pgb.pgbio.cin := false.B
       // Only use carry-outs of even-indexed blocks
       if ((block & 1) == 0)
-        couts((block + 1) * weight) := pgb.io.cout
-      gens(layer)(block)  := pgb.io.gO
-      props(layer)(block) := pgb.io.pO
+        couts((block + 1) * weight) := pgb.pgbio.cout
+      gens(layer)(block)  := pgb.pgbio.gO
+      props(layer)(block) := pgb.pgbio.pO
     }
   }
 

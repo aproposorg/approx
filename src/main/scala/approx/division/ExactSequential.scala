@@ -39,7 +39,7 @@ class Radix2SeqDivider(width: Int) extends Divider(width) {
   when(io.start) {
     done := false.B
     iter := 0.U
-    when(!io.b.orR()) { // catch division by zero
+    when(!io.b.orR) { // catch division by zero
       busy := false.B
       done := true.B
       dbz  := true.B

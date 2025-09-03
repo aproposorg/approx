@@ -2,13 +2,12 @@ package approx.multiplication
 
 import chisel3._
 import chisel3.util.log2Up
-
-import chiseltest._
+import chisel3.simulator.scalatest.ChiselSim
 
 import org.scalatest.flatspec.AnyFlatSpec
 
 /** Common test patterns for exact sequential multipliers */
-trait ExactSeqMultiplierSpec extends AnyFlatSpec with ChiselScalatestTester {
+trait ExactSeqMultiplierSpec extends AnyFlatSpec with ChiselSim {
   val SimpleWidth  = 8
   val CommonWidths = List(4, 8, 16, 32)
 
@@ -133,16 +132,14 @@ class Radix2SeqMultiplierSpec extends ExactSeqMultiplierSpec {
 
   // Do simple and random unsigned tests
   it should "do simple multiplications" in {
-    test(new Radix2SeqMultiplier(SimpleWidth))
-      .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+    simulate(new Radix2SeqMultiplier(SimpleWidth)) { dut =>
       simpleTest(dut)
     }
   }
 
   for (width <- CommonWidths) {
     it should s"do random $width-bit unsigned multiplications" in {
-      test(new Radix2SeqMultiplier(width))
-        .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+      simulate(new Radix2SeqMultiplier(width)) { dut =>
         randomUnsignedTest(dut)
       }
     }

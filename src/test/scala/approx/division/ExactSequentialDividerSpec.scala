@@ -2,13 +2,12 @@ package approx.division
 
 import chisel3._
 import chisel3.util.log2Up
-
-import chiseltest._
+import chisel3.simulator.scalatest.ChiselSim
 
 import org.scalatest.flatspec.AnyFlatSpec
 
 /** Common test patterns for exact dividers */
-trait ExactSeqDividerSpec extends AnyFlatSpec with ChiselScalatestTester {
+trait ExactSeqDividerSpec extends AnyFlatSpec with ChiselSim {
   val SimpleWidth  = 8
   val CommonWidths = List(4, 8, 16, 32)
 
@@ -51,7 +50,7 @@ trait ExactSeqDividerSpec extends AnyFlatSpec with ChiselScalatestTester {
     // Set inputs low
     dut.io.a.poke(0.U)
     dut.io.b.poke(0.U)
-    dut.io.start.poke(0.U)
+    dut.io.start.poke(false.B)
     dut.io.busy.expect(false.B)
     dut.io.done.expect(false.B)
     dut.io.dbz.expect(false.B)
@@ -113,16 +112,14 @@ class Radix2SeqDividerSpec extends ExactSeqDividerSpec {
   behavior of "Radix 2 Divider"
 
   it should "do simple divisions" in {
-    test(new Radix2SeqDivider(SimpleWidth))
-      .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+    simulate(new Radix2SeqDivider(SimpleWidth)) { dut =>
       simpleTest(dut)
     }
   }
 
   for (width <- CommonWidths) {
     it should s"do random $width-bit divisions" in {
-      test(new Radix2SeqDivider(width))
-        .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+      simulate(new Radix2SeqDivider(width)) { dut =>
         randomUnsignedTest(dut)
       }
     }

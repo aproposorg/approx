@@ -94,7 +94,7 @@ class ACA(val width: Int, val subWidth: Int) extends Module {
 
   // Combine results and output
   io.s := ((1 until stages).map { 
-    s => csums(s)(0).asUInt()(subWidth-1, subWidth/2) 
+    s => csums(s)(0).asUInt(subWidth-1, subWidth/2) 
   }).reduce(_ ## _) ## csums(0)(0).asUInt
   io.cout := csums(stages-1)(1)(subWidth-1)
 }

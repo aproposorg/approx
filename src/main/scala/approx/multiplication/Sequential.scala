@@ -4,7 +4,7 @@ import approx.addition.HOAANED
 
 import chisel3._
 import chisel3.util.{is, switch}
-import chisel3.experimental.ChiselEnum
+import chisel3.ChiselEnum
 
 /** Approximate sequential radix-2 multiplier
  * 

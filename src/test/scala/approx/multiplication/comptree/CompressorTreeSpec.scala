@@ -1,8 +1,7 @@
 package approx.multiplication.comptree
 
 import chisel3._
-
-import chiseltest._
+import chisel3.simulator.scalatest.ChiselSim
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -12,7 +11,7 @@ import org.scalatest.matchers.should.Matchers
  * We use the same signatures proposed by Preusser [2017] and some
  * randomly generated ones.
  */
-trait CompressorTreeSpec extends AnyFlatSpec with ChiselScalatestTester with Matchers {
+trait CompressorTreeSpec extends AnyFlatSpec with ChiselSim with Matchers {
   // The tests need an RNG to generate random inputs
   val rng = new scala.util.Random(42)
 
@@ -160,7 +159,7 @@ class ASICTreeSpec extends CompressorTreeSpec {
   for (sig <- Signatures) {
     /** Test simple generation of compressors */
     it should s"generate with signature $sig" in {
-      test(CompressorTree(sig, targetDevice=targetDevice)) { dut =>
+      simulate(CompressorTree(sig, targetDevice=targetDevice)) { dut =>
         dut.io.in.poke(0.U)
         dut.clock.step()
         dut.io.out.expect(0.U)
@@ -199,16 +198,14 @@ class ASICTreeSpec extends CompressorTreeSpec {
 
     /** Test with some simple edge case inputs */
     it should s"function properly with signature $sig at edge case inputs" in {
-      test(CompressorTree(sig, targetDevice=targetDevice))
-        .withAnnotations(Seq(VerilatorBackendAnnotation)) { dut =>
+      simulate(CompressorTree(sig, targetDevice=targetDevice)) { dut =>
         simpleTest(dut)
       }
     }
 
     /** Test with some random inputs */
     it should s"function properly with signature $sig given random inputs" in {
-      test(CompressorTree(sig, targetDevice=targetDevice))
-        .withAnnotations(Seq(VerilatorBackendAnnotation)) { dut =>
+      simulate(CompressorTree(sig, targetDevice=targetDevice)) { dut =>
         randomTest(dut)
       }
     }
@@ -218,8 +215,6 @@ class ASICTreeSpec extends CompressorTreeSpec {
 class SevenSeriesTreeSpec extends CompressorTreeSpec {
   behavior of "7 Series compressor"
   val targetDevice = "7series"
-
-  /** @todo Implement simulation using xsim here, if available. */
 
   for (sig <- Signatures) {
     /** Test simple generation of compressors */
@@ -232,8 +227,6 @@ class SevenSeriesTreeSpec extends CompressorTreeSpec {
 class VersalTreeSpec extends CompressorTreeSpec {
   behavior of "Versal compressor"
   val targetDevice = "versal"
-
-  /** @todo Implement simulation using xsim here, if available. */
 
   for (sig <- Signatures) {
     /** Test simple generation of compressors */
@@ -255,16 +248,14 @@ class IntelTreeSpec extends CompressorTreeSpec {
 
     /** Test with some simple edge case inputs */
     it should s"function properly with signature $sig at edge case inputs" in {
-      test(CompressorTree(sig, targetDevice=targetDevice))
-        .withAnnotations(Seq(VerilatorBackendAnnotation)) { dut =>
+      simulate(CompressorTree(sig, targetDevice=targetDevice)) { dut =>
         simpleTest(dut)
       }
     }
 
     /** Test with some random inputs */
     it should s"function properly with signature $sig given random inputs" in {
-      test(CompressorTree(sig, targetDevice=targetDevice))
-        .withAnnotations(Seq(VerilatorBackendAnnotation)) { dut =>
+      simulate(CompressorTree(sig, targetDevice=targetDevice)) { dut =>
         randomTest(dut)
       }
     }

@@ -2,13 +2,12 @@ package approx.addition
 
 import chisel3._
 import chisel3.util.log2Up
-
-import chiseltest._
+import chisel3.simulator.scalatest.ChiselSim
 
 import org.scalatest.flatspec.AnyFlatSpec
 
 /** Common test patterns for exact, self-timed adders */
-trait ExactSelfTimedAdderSpec extends AnyFlatSpec with ChiselScalatestTester {
+trait ExactSelfTimedAdderSpec extends AnyFlatSpec with ChiselSim {
   val SimpleWidth  = 8
   val CommonWidths = List(4, 8, 16, 32)
   
@@ -95,16 +94,14 @@ class STASpec extends ExactSelfTimedAdderSpec {
   behavior of "Self-Timed Adder"
 
   it should "do simple additions" in {
-    test(new STA(SimpleWidth))
-      .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+    simulate(new STA(SimpleWidth)) { dut =>
       simpleTest(dut)
     }
   }
 
   for (width <- CommonWidths) {
     it should s"do random $width-bit additions" in {
-      test(new STA(width))
-        .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+      simulate(new STA(width)) { dut =>
         randomTest(dut)
       }
     }
@@ -115,16 +112,14 @@ class CCASpec extends ExactSelfTimedAdderSpec {
   behavior of "Carry-Skip Adder"
 
   it should "do simple additions" in {
-    test(new CCA(SimpleWidth))
-      .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+    simulate(new CCA(SimpleWidth)) { dut =>
       simpleTest(dut)
     }
   }
 
   for (width <- CommonWidths) {
     it should s"do random $width-bit additions" in {
-      test(new CCA(width))
-        .withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+      simulate(new CCA(width)) { dut =>
         randomTest(dut)
       }
     }

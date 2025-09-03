@@ -2,7 +2,7 @@
 
 [![Actions Status](https://github.com/aproposorg/approx/actions/workflows/ci.yml/badge.svg)](https://github.com/aproposorg/approx/actions)
 
-This repository contains a collection of approximate arithmetic units for use in various digital designs. The units are written in [Chisel](https://github.com/chipsalliance/chisel3) with tests written for the exact units using [ChiselTest](https://github.com/ucb-bar/chiseltest). Currently only a selection of adders and multipliers and a simple sequential division unit are included - more designs to come!
+This repository contains a collection of approximate arithmetic units for use in various digital designs. The units are written in [Chisel](https://github.com/chipsalliance/chisel3) with tests written for the exact units using [ChiselSim](https://www.chisel-lang.org/docs/explanations/testing). Currently only a selection of adders and multipliers and a simple sequential division unit are included - more designs to come!
 
 When you use this library in a research project, please cite it as:
 
@@ -19,11 +19,9 @@ This README only contains a brief overview of the library's current contents. Al
 ***
 # Requirements
 
-Utilizing Chisel and ChiselTest, `approx` requires a suitable installation of Scala. For this purpose, we use the Scala Build Tool (`sbt`) for which we provide a suitable build script. 
+Utilizing Chisel and ChiselSim, `approx` requires a suitable installation of Scala. For this purpose, we use the Scala Build Tool (`sbt`) for which we provide a suitable build script. The provided tests require a recent version of Verilator.
 
-Moreover, some tests run too slow in ChiselTest's built-in Treadle simulator, so we have instead decided to run them using Verilator (see e.g., `Radix2MultiplierSpec` [here](./src/test/scala/approx/multiplication/ExactMultiplierSpec.scala#L165)). Thus, to run all provided tests, one must have a suitable installation of Verilator available. Note that only [specific versions of Verilator](https://github.com/ucb-bar/chiseltest#verilator-versions) are officially supported.
-
-This library is tested in Ubuntu 20.04 with Verilator 4.028.
+This library is tested in Ubuntu 24.04 with Verilator 5.032. Note that the default Verilator version (5.020) available through `apt` in Ubunty 24.04 is _not_ new enough.
 
 ***
 # Adders

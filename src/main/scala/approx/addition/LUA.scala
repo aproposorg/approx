@@ -40,6 +40,6 @@ class LUA(width: Int, val chainWidth: Int) extends Adder(width) {
   }
 
   // Combine results and output
-  io.s    := p ^ carries.asUInt()(width-1, 0)
+  io.s    := p ^ carries.asUInt(width-1, 0)
   io.cout := carries(width)
 }

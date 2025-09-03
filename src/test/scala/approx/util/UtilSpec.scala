@@ -1,11 +1,11 @@
 package approx.util
 
 import chisel3._
-import chiseltest._
+import chisel3.simulator.scalatest.ChiselSim
 import org.scalatest.flatspec.AnyFlatSpec
 
 /** Common test patterns for LOD and LOPD modules */
-trait LOSpec extends AnyFlatSpec with ChiselScalatestTester {
+trait LOSpec extends AnyFlatSpec with ChiselSim {
   val SimpleWidth  = 8
   val CommonWidths = List(4, 8, 16, 32)
 
@@ -53,8 +53,7 @@ class LODSpec extends LOSpec {
   }
 
   it should "do simple detections" in {
-    test(new LOD(SimpleWidth))
-      .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+    simulate(new LOD(SimpleWidth)) { dut =>
       simpleTests.foreach { case (in, zero, out, _) =>
         pokeAndExpect(dut)(in.U)(zero.B, out.U)
       }
@@ -63,8 +62,7 @@ class LODSpec extends LOSpec {
 
   it should "do random detections" in {
     for (width <- CommonWidths) {
-      test(new LOD(width))
-        .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+      simulate(new LOD(width)) { dut =>
         randomTests(width, 10*width).foreach { case (in, zero, out, _) =>
           pokeAndExpect(dut)(in.U)(zero.B, out.U)
         }
@@ -90,8 +88,7 @@ class LOPDSpec extends LOSpec {
   }
 
   it should "do simple detections" in {
-    test(new LOPD(SimpleWidth))
-      .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+    simulate(new LOPD(SimpleWidth)) { dut =>
       simpleTests.foreach { case (in, zero, _, out) =>
         pokeAndExpect(dut)(in.U)(zero.B, out.U)
       }
@@ -100,8 +97,7 @@ class LOPDSpec extends LOSpec {
 
   it should "do random detections" in {
     for (width <- CommonWidths) {
-      test(new LOPD(width))
-        .withAnnotations(Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) { dut =>
+      simulate(new LOPD(width)) { dut =>
         randomTests(width, 10*width).foreach { case (in, zero, _, out) =>
           pokeAndExpect(dut)(in.U)(zero.B, out.U)
         }

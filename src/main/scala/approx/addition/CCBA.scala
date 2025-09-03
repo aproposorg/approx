@@ -41,7 +41,7 @@ class CCBA(width: Int, val stages: Int, val specWidth: Int) extends Adder(width)
    * @param p the propagate bits of the operands
    * @return a conditional carry chain cut
    */
-  private[CCBA] def prop(p: UInt) = p(stageWidth-1, stageWidth-specWidth).andR()
+  private[CCBA] def prop(p: UInt) = p(stageWidth-1, stageWidth-specWidth).andR
 
   val cuts   = Wire(Vec(stages-1, Bool()))
   val specs  = Wire(Vec(stages-1, Bool()))

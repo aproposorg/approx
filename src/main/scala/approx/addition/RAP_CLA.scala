@@ -52,7 +52,7 @@ class RAP_CLA(val width: Int, val stages: Int) extends Module {
     (0 until w).foreach { i => appxcs(i+1) := io.g(i) | (io.p(i) && appxcs(i)) }
 
     // Output result
-    io.carries := cs.asUInt()(w-1, 0)
+    io.carries := cs.asUInt(w-1, 0)
     io.cout    := Mux(io.appx, appxcs(w), cs(w))
   }
 
