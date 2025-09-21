@@ -234,8 +234,8 @@ trait MACSpec extends ExactAccumulatorSpec {
         pokeAndExpect(0.U, 0.U, false.B)(0.U)(mac)
 
         // Accumulate some numbers
-        val as    = Array.fill(n) { BigInt(mac.inW, rng) }
-        val bs    = Array.fill(n) { BigInt(mac.inW, rng) }
+        val as    = Array.fill(n) { BigInt(mac.inAW, rng) }
+        val bs    = Array.fill(n) { BigInt(mac.inBW, rng) }
         val zeros = Array.fill(n) { rng.nextBoolean() }
         (0 until n).foreach { i =>
           acc = if (zeros(i)) (as(i) * bs(i)) & mask else (acc + as(i) * bs(i)) & mask
@@ -250,8 +250,8 @@ trait MACSpec extends ExactAccumulatorSpec {
         pokeAndExpect(Seq.fill(pmac.nIn)(0.U), Seq.fill(pmac.nIn)(0.U), false.B)(0.U)(pmac)
 
         // Accumulate some numbers
-        val as    = Array.fill(n) { Seq.fill(pmac.nIn) { BigInt(pmac.inW, rng) } }
-        val bs    = Array.fill(n) { Seq.fill(pmac.nIn) { BigInt(pmac.inW, rng) } }
+        val as    = Array.fill(n) { Seq.fill(pmac.nIn) { BigInt(pmac.inAW, rng) } }
+        val bs    = Array.fill(n) { Seq.fill(pmac.nIn) { BigInt(pmac.inBW, rng) } }
         val zeros = Array.fill(n) { rng.nextBoolean() }
         (0 until n).foreach { i =>
           acc = if (zeros(i)) as(i).zip(bs(i)).map{ case (a, b) => a * b }.sum & mask
@@ -259,7 +259,7 @@ trait MACSpec extends ExactAccumulatorSpec {
           pokeAndExpect(as(i).map(_.U), bs(i).map(_.U), zeros(i).B)(acc.U)(pmac)
         }
 
-      case _ => throw new IllegalArgumentException("can only verify SAs and PSAs")
+      case _ => throw new IllegalArgumentException("can only verify MACs and PMACs")
     }
   }
 
@@ -280,13 +280,14 @@ trait MACSpec extends ExactAccumulatorSpec {
         pokeAndExpect(0.U, 0.U, false.B)(0.U)(mac)
 
         // Accumulate some numbers
-        val ext = ((BigInt(1) << mac.accW) - 1) & ~((BigInt(1) << mac.inW) - 1)
-        val as    = Array.fill(n) { BigInt(mac.inW, rng) }
-        val bs    = Array.fill(n) { BigInt(mac.inW, rng) }
+        val extA  = ((BigInt(1) << mac.accW) - 1) & ~((BigInt(1) << mac.inAW) - 1)
+        val extB  = ((BigInt(1) << mac.accW) - 1) & ~((BigInt(1) << mac.inBW) - 1)
+        val as    = Array.fill(n) { BigInt(mac.inAW, rng) }
+        val bs    = Array.fill(n) { BigInt(mac.inBW, rng) }
         val zeros = Array.fill(n) { rng.nextBoolean() }
         (0 until n).foreach { i =>
-          val aExt = if (as(i).testBit(mac.inW-1)) ext | as(i) else as(i)
-          val bExt = if (bs(i).testBit(mac.inW-1)) ext | bs(i) else bs(i)
+          val aExt = if (as(i).testBit(mac.inAW-1)) extA | as(i) else as(i)
+          val bExt = if (bs(i).testBit(mac.inBW-1)) extB | bs(i) else bs(i)
           acc = if (zeros(i)) (aExt * bExt) & mask else (acc + aExt * bExt) & mask
           pokeAndExpect(as(i).U, bs(i).U, zeros(i).B)(acc.U)(mac)
         }
@@ -299,13 +300,14 @@ trait MACSpec extends ExactAccumulatorSpec {
         pokeAndExpect(Seq.fill(pmac.nIn)(0.U), Seq.fill(pmac.nIn)(0.U), false.B)(0.U)(pmac)
 
         // Accumulate some numbers
-        val ext = ((BigInt(1) << pmac.accW) - 1) & ~((BigInt(1) << pmac.inW) - 1)
-        val as    = Array.fill(n) { Seq.fill(pmac.nIn) { BigInt(pmac.inW, rng) }}
-        val bs    = Array.fill(n) { Seq.fill(pmac.nIn) { BigInt(pmac.inW, rng) }}
+        val extA  = ((BigInt(1) << pmac.accW) - 1) & ~((BigInt(1) << pmac.inAW) - 1)
+        val extB  = ((BigInt(1) << pmac.accW) - 1) & ~((BigInt(1) << pmac.inBW) - 1)
+        val as    = Array.fill(n) { Seq.fill(pmac.nIn) { BigInt(pmac.inAW, rng) }}
+        val bs    = Array.fill(n) { Seq.fill(pmac.nIn) { BigInt(pmac.inBW, rng) }}
         val zeros = Array.fill(n) { rng.nextBoolean() }
         (0 until n).foreach { i =>
-          val asExt = as(i).map { a => if (a.testBit(pmac.inW-1)) ext | a else a }
-          val bsExt = bs(i).map { b => if (b.testBit(pmac.inW-1)) ext | b else b }
+          val asExt = as(i).map { a => if (a.testBit(pmac.inAW-1)) extA | a else a }
+          val bsExt = bs(i).map { b => if (b.testBit(pmac.inBW-1)) extB | b else b }
           acc = if (zeros(i)) asExt.zip(bsExt).map{ case (a, b) => a * b }.sum & mask
           else (acc + asExt.zip(bsExt).map{ case (a, b) => a * b }.sum) & mask
           pokeAndExpect(as(i).map(_.U), bs(i).map(_.U), zeros(i).B)(acc.U)(pmac)
@@ -319,16 +321,18 @@ trait MACSpec extends ExactAccumulatorSpec {
 class MultiplyAccumulatorSpec extends MACSpec {
   behavior of "Multiply Accumulator"
 
-  for (width <- CommonWidths ++ OddWidths) {
-    it should s"do random $width-bit unsigned accumulation" in {
-      simulate(new MultiplyAccumulator(width-3, width)) { dut =>
-        randomUnsignedTest(dut)
+  for (aW <- CommonWidths ++ OddWidths) {
+    for (bW <- CommonWidths) {
+      it should s"do random $aW-by-$bW-bit unsigned accumulation" in {
+        simulate(new MultiplyAccumulator(aW, bW, aW+bW-3)) { dut =>
+          randomUnsignedTest(dut)
+        }
       }
-    }
 
-    it should s"do random $width-bit signed accumulation" in {
-      simulate(new MultiplyAccumulator(width-3, width, true)) { dut =>
-        randomSignedTest(dut)
+      it should s"do random $aW-by-$bW-bit signed accumulation" in {
+        simulate(new MultiplyAccumulator(aW, bW, aW+bW+3, true)) { dut =>
+          randomSignedTest(dut)
+        }
       }
     }
   }
@@ -339,16 +343,20 @@ class ParallelMultiplyAccumulatorSpec extends MACSpec {
 
   // These tests are only run for relatively low bit-widths due to 
   // long execution times otherwise
-  for (width <- CommonWidths ++ OddWidths) {
-    it should s"do random $width-bit unsigned accumulation" in {
-      simulate(new ParallelMultiplyAccumulator(width / 2, width-3, width)) { dut =>
-        randomUnsignedTest(dut)
+  for (aW <- CommonWidths ++ OddWidths) {
+    for (bW <- CommonWidths) {
+      it should s"do random $aW-by-$bW-bit unsigned accumulation" in {
+        simulate(new ParallelMultiplyAccumulator(
+          scala.math.min(aW, bW) / 2, aW, bW, aW + bW + 3)) { dut =>
+          randomUnsignedTest(dut)
+        }
       }
-    }
 
-    it should s"do random $width-bit signed accumulation" in {
-      simulate(new ParallelMultiplyAccumulator(width / 2, width-3, width, true)) { dut =>
-        randomSignedTest(dut)
+      it should s"do random $aW-by-$bW-bit signed accumulation" in {
+        simulate(new ParallelMultiplyAccumulator(
+          scala.math.min(aW, bW) / 2, aW, bW, aW + bW - 3, true)) { dut =>
+          randomSignedTest(dut)
+        }
       }
     }
   }

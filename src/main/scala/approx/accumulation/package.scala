@@ -28,12 +28,13 @@ package object accumulation {
 
   /** Multiply accumulator IO bundle
    * 
-   * @param inW the width of the input operands
+   * @param inAW the width of the first input operand
+   * @param inBW the width of the second input operand
    * @param accW the width of the accumulator
    */
-  class MultiplyAccumulatorIO(inW: Int, accW: Int) extends AccumulatorIO(accW) {
-    val a = Input(UInt(inW.W))
-    val b = Input(UInt(inW.W))
+  class MultiplyAccumulatorIO(inAW: Int, inBW: Int, accW: Int) extends AccumulatorIO(accW) {
+    val a = Input(UInt(inAW.W))
+    val b = Input(UInt(inBW.W))
   }
 
   /** Bit matrix accumulator IO bundle
@@ -58,12 +59,13 @@ package object accumulation {
   /** Parallel multiply accumulator IO bundle
    * 
    * @param nIn the number of parallel input operands
-   * @param inW the width of the input operands
+   * @param inAW the width of the first input operands
+   * @param inBW the width of the second input operands
    * @param accW the width of the accumulator
    */
-  class ParallelMultiplyAccumulatorIO(nIn: Int, inW: Int, accW: Int) extends AccumulatorIO(accW) {
-    val as = Input(Vec(nIn, UInt(inW.W)))
-    val bs = Input(Vec(nIn, UInt(inW.W)))
+  class ParallelMultiplyAccumulatorIO(nIn: Int, inAW: Int, inBW: Int, accW: Int) extends AccumulatorIO(accW) {
+    val as = Input(Vec(nIn, UInt(inAW.W)))
+    val bs = Input(Vec(nIn, UInt(inBW.W)))
   }
 
   /** Abstract simple accumulator module class
@@ -78,14 +80,15 @@ package object accumulation {
 
   /** Abstract multiply accumulator module class
    * 
-   * @param inW the width of the input operands
+   * @param inAW the width of the first input operand
+   * @param inBW the width of the second input operand
    * @param accW the width of the accumulator
    * @param signed whether input operands are signed
    * 
-   * @todo Extend with different operand widths and different signs.
+   * @todo Extend with different signs.
    */
-  abstract class MAC(val inW: Int, val accW: Int, val signed: Boolean) extends Module {
-    val io = IO(new MultiplyAccumulatorIO(inW, accW))
+  abstract class MAC(val inAW: Int, val inBW: Int, val accW: Int, val signed: Boolean) extends Module {
+    val io = IO(new MultiplyAccumulatorIO(inAW, inBW, accW))
   }
 
   /** Abstract bit matrix accumulator module class
@@ -111,13 +114,14 @@ package object accumulation {
   /** Parallel multiply accumulator module class
    * 
    * @param nIn the number of parallel input operands
-   * @param inW the width of the input operands
+   * @param inAW the width of the first input operands
+   * @param inBW the width of the second input operands
    * @param accW the width of the accumulator
    * @param signed whether the input operands are signed
    * 
-   * @todo Extend with different operand widths and different signs.
+   * @todo Extend with different signs.
    */
-  abstract class PMAC(val nIn: Int, val inW: Int, val accW: Int, val signed: Boolean) extends Module {
-    val io = IO(new ParallelMultiplyAccumulatorIO(nIn, inW, accW))
+  abstract class PMAC(val nIn: Int, val inAW: Int, val inBW: Int, val accW: Int, val signed: Boolean) extends Module {
+    val io = IO(new ParallelMultiplyAccumulatorIO(nIn, inAW, inBW, accW))
   }
 }

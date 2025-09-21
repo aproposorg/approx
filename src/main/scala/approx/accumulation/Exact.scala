@@ -25,17 +25,18 @@ class SimpleAccumulator(inW: Int, accW: Int, signed: Boolean = false) extends SA
 
 /** Multiply accumulator
  * 
- * @param inW the width of the input operands
+ * @param inAW the width of the first input operand
+ * @param inBW the width of the second input operand
  * @param accW the width of the accumulator
  * @param signed whether the input operands are signed (defaults to false)
  * 
- * @todo Extend with different signs and operand bit-widths.
+ * @todo Extend with different signs.
  */
-class MultiplyAccumulator(inW: Int, accW: Int, signed: Boolean = false) extends MAC(inW, accW, signed) {
+class MultiplyAccumulator(inAW: Int, inBW: Int, accW: Int, signed: Boolean = false) extends MAC(inAW, inBW, accW, signed) {
   // Compute and extend the product to the width of the accumulator if needed
-  val prodExt = if (2 * inW < accW) {
+  val prodExt = if ((inAW + inBW) < accW) {
     val prod = if (signed) (io.a.asSInt * io.b.asSInt).asUInt else io.a * io.b
-    val sext = if (signed) VecInit(Seq.fill(accW - 2 * inW)(prod(2*inW-1))).asUInt else 0.U((accW - 2 * inW).W)
+    val sext = if (signed) VecInit(Seq.fill(accW - inAW - inBW)(prod(inAW + inBW - 1))).asUInt else 0.U((accW - inAW - inBW).W)
     sext ## prod
   } else {
     (if (signed) (io.a.asSInt * io.b.asSInt) else (io.a * io.b))(accW-1, 0)
@@ -142,7 +143,8 @@ class ParallelSimpleAccumulator(nIn: Int, inW: Int, accW: Int, signed: Boolean =
 /** Parallel multiply accumulator
  * 
  * @param nIn the number of parallel input operands
- * @param inW the width of the input operands
+ * @param inAW the width of the first input operands
+ * @param inBW the width of the second input operands
  * @param accW the width of the accumulator
  * @param signed whether the input operands are signed (defaults to false)
  * @param comp whether to use the compressor tree generator (defaults to false)
@@ -151,21 +153,19 @@ class ParallelSimpleAccumulator(nIn: Int, inW: Int, accW: Int, signed: Boolean =
  * @param mtrc which metric to use for selecting counters (defaults to efficiency)
  * @param approx the targeted approximation styles (defaults to no approximation)
  * 
- * @todo Extend with different signs and operand bit-widths.
+ * @todo Extend with different signs.
  */
-class ParallelMultiplyAccumulator(nIn: Int, inW: Int, accW: Int, signed: Boolean = false,
+class ParallelMultiplyAccumulator(nIn: Int, inAW: Int, inBW: Int, accW: Int, signed: Boolean = false,
   comp: Boolean = false, targetDevice: String = "", mtrc: Char = 'e', approx: Seq[Approximation] = Seq.empty[Approximation])
-  extends PMAC(nIn, inW, accW, signed) with FlattenInstance {
-  val aW = io.as.head.getWidth
-  val bW = io.bs.head.getWidth
+  extends PMAC(nIn, inAW, inBW, accW, signed) with FlattenInstance {
 
   // Depending on the parameters passed, generate a naive accumulator or use 
   // the custom compressor tree generator
   if (comp) {
     // Compute some constants and generate the sign-extension constant
-    val midLo = scala.math.min(aW, bW) - 1
-    val midHi = scala.math.max(aW, bW) - 1
-    val upper = aW + bW - 1
+    val midLo = scala.math.min(inAW, inBW) - 1
+    val midHi = scala.math.max(inAW, inBW) - 1
+    val upper = inAW + inBW - 1
     val extConst = if (signed) Seq.fill(nIn) {
       (BigInt(-1) << upper) + (BigInt(1) << midLo) + (BigInt(1) << midHi)
     }.sum else BigInt(0)
@@ -177,7 +177,7 @@ class ParallelMultiplyAccumulator(nIn: Int, inW: Int, accW: Int, signed: Boolean
      */
     def dotCount(col: Int): Int = {
       if (col < midLo) col + 1
-      else if (midLo <= col && col <= midHi) scala.math.min(aW, bW)
+      else if (midLo <= col && col <= midHi) scala.math.min(inAW, inBW)
       else if (col < upper) upper - col
       else 0
     }
@@ -188,7 +188,7 @@ class ParallelMultiplyAccumulator(nIn: Int, inW: Int, accW: Int, signed: Boolean
      * @param col the index of the column
      * @return the index of the least significant row
      */
-    def lsRow(col: Int): Int = if (col < inW) 0 else (col - inW + 1)
+    def lsRow(col: Int): Int = if (col < inBW) 0 else (col - inBW + 1)
 
     // Generate the signature of the needed compressor tree
     val sig = new Signature((0 until scala.math.max(upper + 1, accW)).map { c =>
@@ -200,17 +200,17 @@ class ParallelMultiplyAccumulator(nIn: Int, inW: Int, accW: Int, signed: Boolean
     // Compute the partial products
     val prods = if (signed) {
       (0 until nIn).map { i =>
-        (0 until aW).map { r =>
-          val pprod = VecInit((0 until bW).map { c =>
+        (0 until inAW).map { r =>
+          val pprod = VecInit((0 until inBW).map { c =>
             val dot = io.as(i)(r) & io.bs(i)(c)
-            if (c == (bW - 1)) !dot else dot
+            if (c == (inBW - 1)) !dot else dot
           }).asUInt
-          if (r == (aW - 1)) ~pprod else pprod
+          if (r == (inAW - 1)) ~pprod else pprod
         }
       }
     } else {
       (0 until nIn).map { i =>
-        (0 until aW).map { r => VecInit(Seq.fill(bW)(io.as(i)(r))).asUInt & io.bs(i) }
+        (0 until inAW).map { r => VecInit(Seq.fill(inBW)(io.as(i)(r))).asUInt & io.bs(i) }
       }
     }
 
@@ -241,10 +241,10 @@ class ParallelMultiplyAccumulator(nIn: Int, inW: Int, accW: Int, signed: Boolean
     io.acc := mxAcc.io.acc
   } else {
     // Compute and sign-extend the incoming products as needed
-    val prodsExt = if (aW + bW < accW) {
+    val prodsExt = if ((inAW + inBW) < accW) {
       VecInit(io.as.zip(io.bs).map { case (a, b) =>
         val prod = if (signed) (a.asSInt * b.asSInt).asUInt else (a * b)
-        val sext = if (signed) VecInit(Seq.fill(accW - aW - bW)(prod(aW+bW-1))).asUInt else 0.U((accW - aW - bW).W)
+        val sext = if (signed) VecInit(Seq.fill(accW - inAW - inBW)(prod(inAW - inBW - 1))).asUInt else 0.U((accW - inAW - inBW).W)
         sext ## prod
       })
     } else {
