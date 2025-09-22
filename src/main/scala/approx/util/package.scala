@@ -47,4 +47,26 @@ package object util {
       VecInit(Seq.fill(log2Up(width))(oneHot(i))).asUInt & i.U(log2Up(width).W)
     }).reduceTree(_ | _)
   }
+
+  /** Parallel-read shift register
+   * 
+   * @param depth the depth of the shift register
+   */
+  class PRShiftReg[T <: Data](gen: T, depth: Int) extends Module {
+    require(depth >= 0, "depth of shift register must be non-negative")
+    val io = IO(new Bundle {
+      val in  = Input(gen)
+      val out = Output(Vec(depth + 1, gen))
+    })
+    if (depth == 0) {
+      io.out(0) := io.in
+    } else {
+      val regs = Seq.fill(depth) { RegInit(gen, 0.U.asTypeOf(gen)) }
+      regs.head := io.in
+      (1 until depth).foreach { s =>
+        regs(s) := regs(s-1)
+      }
+      io.out := VecInit(io.in +: regs)
+    }
+  }
 }

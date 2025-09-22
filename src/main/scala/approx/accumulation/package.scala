@@ -5,14 +5,16 @@ import chisel3._
 import approx.multiplication.comptree.Signature
 
 package object accumulation {
-  
-  /** @todo Extend all these with support for pipelining! */
 
   /** Accumulator IO bundle
    * 
    * @param accW the width of the accumulator
+   * 
+   * Asserting `en` enables accumulation of the input operand(s) into the
+   * accumulator. Asserting `zero` resets the accumulator to zero.
    */
   private[accumulation] abstract class AccumulatorIO(accW: Int) extends Bundle {
+    val en   = Input(Bool())
     val zero = Input(Bool())
     val acc  = Output(UInt(accW.W))
   }
@@ -73,8 +75,9 @@ package object accumulation {
    * @param inW the width of the input operand
    * @param accW the width of the accumulator
    * @param signed whether input operands are signed
+   * @param pipes the number of pipeline stages
    */
-  abstract class SA(val inW: Int, val accW: Int, val signed: Boolean) extends Module {
+  abstract class SA(val inW: Int, val accW: Int, val signed: Boolean, val pipes: Int) extends Module {
     val io = IO(new SimpleAccumulatorIO(inW, accW))
   }
 
@@ -84,10 +87,9 @@ package object accumulation {
    * @param inBW the width of the second input operand
    * @param accW the width of the accumulator
    * @param signed whether input operands are signed
-   * 
-   * @todo Extend with different signs.
+   * @param pipes the number of pipeline stages
    */
-  abstract class MAC(val inAW: Int, val inBW: Int, val accW: Int, val signed: Boolean) extends Module {
+  abstract class MAC(val inAW: Int, val inBW: Int, val accW: Int, val signed: Boolean, val pipes: Int) extends Module {
     val io = IO(new MultiplyAccumulatorIO(inAW, inBW, accW))
   }
 
@@ -95,8 +97,9 @@ package object accumulation {
    * 
    * @param sig the input bit matrix' signature
    * @param accW the width of the accumulator
+   * @param pipes the number of pipeline stages
    */
-  abstract class MxAC(val sig: Signature, val accW: Int) extends Module {
+  abstract class MxAC(val sig: Signature, val accW: Int, val pipes: Int) extends Module {
     val io = IO(new MatrixAccumulatorIO(sig, accW))
   }
 
@@ -106,8 +109,9 @@ package object accumulation {
    * @param inW the width of the input operands
    * @param accW the width of the accumulator
    * @param signed whether the input operands are signed
+   * @param pipes the number of pipeline stages
    */
-  abstract class PSA(val nIn: Int, val inW: Int, val accW: Int, val signed: Boolean) extends Module {
+  abstract class PSA(val nIn: Int, val inW: Int, val accW: Int, val signed: Boolean, val pipes: Int) extends Module {
     val io = IO(new ParallelSimpleAccumulatorIO(nIn, inW, accW))
   }
 
@@ -118,10 +122,9 @@ package object accumulation {
    * @param inBW the width of the second input operands
    * @param accW the width of the accumulator
    * @param signed whether the input operands are signed
-   * 
-   * @todo Extend with different signs.
+   * @param pipes the number of pipeline stages
    */
-  abstract class PMAC(val nIn: Int, val inAW: Int, val inBW: Int, val accW: Int, val signed: Boolean) extends Module {
+  abstract class PMAC(val nIn: Int, val inAW: Int, val inBW: Int, val accW: Int, val signed: Boolean, val pipes: Int) extends Module {
     val io = IO(new ParallelMultiplyAccumulatorIO(nIn, inAW, inBW, accW))
   }
 }

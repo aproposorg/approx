@@ -21,7 +21,11 @@ This README only contains a brief overview of the library's current contents. Al
 
 Utilizing Chisel and ChiselSim, `approx` requires a suitable installation of Scala. For this purpose, we use the Scala Build Tool (`sbt`) for which we provide a suitable build script. The provided tests require a recent version of Verilator.
 
-This library is tested in Ubuntu 24.04 with Verilator 5.032. Note that the default Verilator version (5.020) available through `apt` in Ubunty 24.04 is _not_ new enough.
+This library is tested in Ubuntu 24.04 with Verilator 5.032. Note that the default Verilator version (5.020) available through `apt` in Ubunty 24.04 is _not_ new enough. If you wish to have VCD dumps from the simulations, pass the `emitVcd` flag to `testOnly`, for example:
+
+```bash
+sbt "testOnly approx.addition.RCASpec -- -DemitVcd=1"
+```
 
 ***
 # Adders

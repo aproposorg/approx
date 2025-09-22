@@ -6,10 +6,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 
 import approx.multiplication.comptree.Signature
 
-/** Common test patterns for exact accumulators
- * 
- * @todo Extend all these with support for pipelining!
- */
+/** Common test patterns for exact accumulators */
 abstract trait ExactAccumulatorSpec extends AnyFlatSpec with ChiselSim {
   val CommonWidths = List(4, 8, 16, 32)
   val OddWidths    = List(5, 13, 29)
@@ -29,9 +26,12 @@ trait SASpec extends ExactAccumulatorSpec {
    * @param acc the expected sum
    */
   def pokeAndExpect[T <: SA](in: UInt, zero: Bool)(acc: UInt)(implicit dut: T) = {
+    dut.io.en.poke(true.B)
     dut.io.in.poke(in)
     dut.io.zero.poke(zero)
     dut.clock.step()
+    dut.io.en.poke(false.B)
+    if (dut.pipes > 0) dut.clock.step(dut.pipes)
     dut.io.acc.expect(acc)
   }
 
@@ -46,10 +46,13 @@ trait SASpec extends ExactAccumulatorSpec {
    * inputs. Ignores extra inputs in the opposite case.
    */
   def pokeAndExpect[T <: PSA](ins: Seq[UInt], zero: Bool)(acc: UInt)(implicit dut: T) = {
+    dut.io.en.poke(true.B)
     val insExt = if (ins.size < dut.io.ins.size) ins ++ Seq.fill(dut.io.ins.size - ins.size)(0.U) else ins
     dut.io.ins.zip(insExt).foreach { case (port, inv) => port.poke(inv) }
     dut.io.zero.poke(zero)
     dut.clock.step()
+    dut.io.en.poke(false.B)
+    if (dut.pipes > 0) dut.clock.step(dut.pipes)
     dut.io.acc.expect(acc)
   }
 
@@ -146,16 +149,19 @@ trait SASpec extends ExactAccumulatorSpec {
 
 class SimpleAccumulatorSpec extends SASpec {
   behavior of "Simple Accumulator"
+  val rng = new scala.util.Random(1337)
 
   for (width <- CommonWidths ++ OddWidths) {
-    it should s"do random $width-bit unsigned accumulation" in {
-      simulate(new SimpleAccumulator(width-3, width)) { dut =>
+    val uPipes = rng.nextInt(5)
+    it should s"do random $width-bit unsigned accumulation with $uPipes pipeline stages" in {
+      simulate(new SimpleAccumulator(width-3, width, pipes = uPipes)) { dut =>
         randomUnsignedTest(dut)
       }
     }
 
-    it should s"do random $width-bit signed accumulation" in {
-      simulate(new SimpleAccumulator(width-3, width, true)) { dut =>
+    val sPipes = rng.nextInt(5)
+    it should s"do random $width-bit signed accumulation with $sPipes pipeline stages" in {
+      simulate(new SimpleAccumulator(width-3, width, true, pipes = sPipes)) { dut =>
         randomSignedTest(dut)
       }
     }
@@ -164,16 +170,19 @@ class SimpleAccumulatorSpec extends SASpec {
 
 class ParallelSimpleAccumulatorSpec extends SASpec {
   behavior of "Parallel Simple Accumulator"
+  val rng = new scala.util.Random(27)
 
   for (width <- CommonWidths ++ OddWidths) {
-    it should s"do random $width-bit unsigned accumulation" in {
-      simulate(new ParallelSimpleAccumulator(width / 2, width-3, width)) { dut =>
+    val uPipes = rng.nextInt(5)
+    it should s"do random $width-bit unsigned accumulation with $uPipes pipeline stages" in {
+      simulate(new ParallelSimpleAccumulator(width / 2, width-3, width, pipes = uPipes)) { dut =>
         randomUnsignedTest(dut)
       }
     }
 
-    it should s"do random $width-bit signed accumulation" in {
-      simulate(new ParallelSimpleAccumulator(width / 2, width-3, width, true)) { dut =>
+    val sPipes = rng.nextInt(5)
+    it should s"do random $width-bit signed accumulation with $sPipes pipeline stages" in {
+      simulate(new ParallelSimpleAccumulator(width / 2, width-3, width, true, pipes = sPipes)) { dut =>
         randomSignedTest(dut)
       }
     }
@@ -189,10 +198,13 @@ trait MACSpec extends ExactAccumulatorSpec {
    * @param acc the expected sum
    */
   def pokeAndExpect[T <: MAC](a: UInt, b: UInt, zero: Bool)(acc: UInt)(implicit dut: T) = {
+    dut.io.en.poke(true.B)
     dut.io.a.poke(a)
     dut.io.b.poke(b)
     dut.io.zero.poke(zero)
     dut.clock.step()
+    dut.io.en.poke(false.B)
+    if (dut.pipes > 0) dut.clock.step(dut.pipes)
     dut.io.acc.expect(acc)
   }
 
@@ -208,12 +220,13 @@ trait MACSpec extends ExactAccumulatorSpec {
    * inputs. Ignores extra inputs in the opposite case.
    */
   def pokeAndExpect[T <: PMAC](as: Seq[UInt], bs: Seq[UInt], zero: Bool)(acc: UInt)(implicit dut: T) = {
-    if (as.size != bs.size)
-      println(s"Warning: ignoring values on MAC input")
+    dut.io.en.poke(true.B)
     dut.io.as.zip(as).foreach { case (port, inv) => port.poke(inv) }
     dut.io.bs.zip(bs).foreach { case (port, inv) => port.poke(inv) }
     dut.io.zero.poke(zero)
     dut.clock.step()
+    dut.io.en.poke(false.B)
+    if (dut.pipes > 0) dut.clock.step(dut.pipes)
     dut.io.acc.expect(acc)
   }
 
@@ -320,17 +333,20 @@ trait MACSpec extends ExactAccumulatorSpec {
 
 class MultiplyAccumulatorSpec extends MACSpec {
   behavior of "Multiply Accumulator"
+  val rng = new scala.util.Random(1337)
 
   for (aW <- CommonWidths ++ OddWidths) {
     for (bW <- CommonWidths) {
+      val uPipes = rng.nextInt(5)
       it should s"do random $aW-by-$bW-bit unsigned accumulation" in {
-        simulate(new MultiplyAccumulator(aW, bW, aW+bW-3)) { dut =>
+        simulate(new MultiplyAccumulator(aW, bW, aW+bW-3, pipes = uPipes)) { dut =>
           randomUnsignedTest(dut)
         }
       }
 
+      val sPipes = rng.nextInt(5)
       it should s"do random $aW-by-$bW-bit signed accumulation" in {
-        simulate(new MultiplyAccumulator(aW, bW, aW+bW+3, true)) { dut =>
+        simulate(new MultiplyAccumulator(aW, bW, aW+bW+3, true, pipes = sPipes)) { dut =>
           randomSignedTest(dut)
         }
       }
@@ -340,21 +356,24 @@ class MultiplyAccumulatorSpec extends MACSpec {
 
 class ParallelMultiplyAccumulatorSpec extends MACSpec {
   behavior of "Parallel Multiply Accumulator"
+  val rng = new scala.util.Random(1997)
 
   // These tests are only run for relatively low bit-widths due to 
   // long execution times otherwise
   for (aW <- CommonWidths ++ OddWidths) {
     for (bW <- CommonWidths) {
-      it should s"do random $aW-by-$bW-bit unsigned accumulation" in {
+      val uPipes = rng.nextInt(5)
+      it should s"do random $aW-by-$bW-bit unsigned accumulation with $uPipes pipeline stages" in {
         simulate(new ParallelMultiplyAccumulator(
-          scala.math.min(aW, bW) / 2, aW, bW, aW + bW + 3)) { dut =>
+          scala.math.min(aW, bW) / 2, aW, bW, aW + bW + 3, pipes = uPipes)) { dut =>
           randomUnsignedTest(dut)
         }
       }
 
-      it should s"do random $aW-by-$bW-bit signed accumulation" in {
+      val sPipes = rng.nextInt(5)
+      it should s"do random $aW-by-$bW-bit signed accumulation with $sPipes pipeline stages" in {
         simulate(new ParallelMultiplyAccumulator(
-          scala.math.min(aW, bW) / 2, aW, bW, aW + bW - 3, true)) { dut =>
+          scala.math.min(aW, bW) / 2, aW, bW, aW + bW - 3, true, pipes = sPipes)) { dut =>
           randomSignedTest(dut)
         }
       }
@@ -370,9 +389,12 @@ trait MxACSpec extends ExactAccumulatorSpec {
    * @param acc the expected sum
    */
   def pokeAndExpect[T <: MxAC](in: UInt, zero: Bool)(acc: UInt)(implicit dut: T) = {
+    dut.io.en.poke(true.B)
     dut.io.in.poke(in)
     dut.io.zero.poke(zero)
     dut.clock.step()
+    dut.io.en.poke(false.B)
+    if (dut.pipes > 0) dut.clock.step(dut.pipes)
     dut.io.acc.expect(acc)
   }
 
@@ -429,9 +451,10 @@ class BitMatrixAccumulatorSpec extends MxACSpec {
   val rng = new scala.util.Random(0)
 
   for (width <- CommonWidths ++ OddWidths) {
-    it should s"do random $width-bit accumulation" in {
-      val sig = new Signature(Array.fill(width)(rng.nextInt(2 * width)))
-      simulate(new BitMatrixAccumulator(sig, width)) { dut =>
+    val pipes = rng.nextInt(5)
+    it should s"do random $width-bit accumulation with $pipes pipeline stages" in {
+      val sig   = new Signature(Array.fill(width)(rng.nextInt(2 * width)))
+      simulate(new BitMatrixAccumulator(sig, width, pipes = pipes)) { dut =>
         randomTest(dut)
       }
     }
