@@ -76,7 +76,7 @@ private[comptree] object TerminalAdders {
     }
 
     // Connect sum outputs
-    io.out := VecInit(carries.map(_.io.O).reverse).asUInt(outW-1, 0)
+    io.out := VecInit(carries.map(_.io.O)).asUInt(outW-1, 0)
   }
 
   /** Quaternary adder for Xilinx Versal FPGAs
@@ -90,26 +90,12 @@ private[comptree] object TerminalAdders {
    * Note, does not implement any form of carry-in.
    */
   class QuaternaryAdder(outW: Int) extends TerminalAdder(4, outW) {
-    // Helper functions to get LOOKAHEAD8 connections
-    def look8CYs(look8: LOOKAHEAD8) = Seq(
-      look8.io.CYA, look8.io.CYB, look8.io.CYC, look8.io.CYD,
-      look8.io.CYE, look8.io.CYF, look8.io.CYG, look8.io.CYH
-    )
-    def look8COs(look8: LOOKAHEAD8) = Seq(
-      look8.io.CYA, look8.io.COUTB, look8.io.CYC, look8.io.COUTD,
-      look8.io.CYE, look8.io.COUTF, look8.io.CYG, look8.io.COUTH
-    )
-    def look8Props(look8: LOOKAHEAD8) = Seq(
-      look8.io.PROPA, look8.io.PROPB, look8.io.PROPC, look8.io.PROPD,
-      look8.io.PROPE, look8.io.PROPF, look8.io.PROPG, look8.io.PROPH
-    )
-
     // Generate top and bottom LOOKAHEAD8s
     val nLook8 = (outW + 7) / 8
     val topLook8   = Seq.fill(nLook8) { Module(new LOOKAHEAD8("TRUE", "TRUE", "TRUE", "TRUE")) }
-    val topL8CYs   = topLook8.flatMap { look8CYs(_) }
-    val topL8COs   = topLook8.flatMap { look8COs(_) }
-    val topL8Props = topLook8.flatMap { look8Props(_) }
+    val topL8CYs   = topLook8.flatMap(_.allCYs)
+    val topL8COs   = topLook8.flatMap(_.allCOs)
+    val topL8Props = topLook8.flatMap(_.allProps)
     topLook8.head.io.CIN := false.B
     topLook8.sliding(2).foreach {
       case Seq(prev, next) => next.io.CIN := prev.io.COUTH
@@ -117,9 +103,9 @@ private[comptree] object TerminalAdders {
     }
 
     val botLook8   = Seq.fill(nLook8) { Module(new LOOKAHEAD8("TRUE", "TRUE", "TRUE", "TRUE")) }
-    val botL8CYs   = botLook8.flatMap { look8CYs(_) }
-    val botL8COs   = botLook8.flatMap { look8COs(_) }
-    val botL8Props = botLook8.flatMap { look8Props(_) }
+    val botL8CYs   = botLook8.flatMap(_.allCYs)
+    val botL8COs   = botLook8.flatMap(_.allCOs)
+    val botL8Props = botLook8.flatMap(_.allProps)
     botLook8.head.io.CIN := false.B
     botLook8.sliding(2).foreach {
       case Seq(prev, next) => next.io.CIN := prev.io.COUTH

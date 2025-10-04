@@ -500,6 +500,15 @@ object Xilinx {
         val PROPG = Input(Bool())
         val PROPH = Input(Bool())
       })
+
+      /** Return a sequence of carry inputs */
+      def allCYs = Seq(io.CYA, io.CYB, io.CYC, io.CYD, io.CYE, io.CYF, io.CYG, io.CYH)
+
+      /** Return a sequence of carry outputs */
+      def allCOs = Seq(io.CYA, io.COUTB, io.CYC, io.COUTD, io.CYE, io.COUTF, io.CYG, io.COUTH)
+
+      /** Return a sequence of propagate inputs */
+      def allProps = Seq(io.PROPA, io.PROPB, io.PROPC, io.PROPD, io.PROPE, io.PROPF, io.PROPG, io.PROPH)
     }
 
     class DSP58(aInput: String = "DIRECT", aMultSel: String = "A", bInput: String = "DIRECT", 

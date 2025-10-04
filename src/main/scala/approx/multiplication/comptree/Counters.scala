@@ -21,6 +21,8 @@ import approx.util.Xilinx.Versal.{genLUT6CYInitString, LOOKAHEAD8, LUT6CY}
  * Atoms can (and should) be composed arbitrarily to form larger counters.
  * For simplicity, we only consider compositions of two counters. All counter
  * libraries per default include half adders and full adders.
+ * 
+ * @todo Consider entirely reworking how composed counters are constructed.
  */
 private[comptree] object Counters {
   /** Abstract atom class
@@ -785,7 +787,8 @@ private[comptree] object Counters {
   /** Collection of counters for Xilinx Versal FPGAs
    * 
    * The current library includes the following atoms:
-   * - @todo Add atoms and compound counters here!
+   * - (2,2)
+   * - (1,4)
    * And the following standalone counters:
    * - (2 : 1,1]
    * - (3 : 1,1]
@@ -800,6 +803,11 @@ private[comptree] object Counters {
       // Input signature ignoring carries
       def inSig: Array[Int]
     }
+
+    /** Atom (2,2) */
+    private[Versal] class Atom22(val inSig: Array[Int] = Array(2, 2)) extends VersalAtom(2)
+    /** Atom (1,4) */
+    private[Versal] class Atom14(val inSig: Array[Int] = Array(4, 1)) extends VersalAtom(2)
 
     /** Counter (2 : 1,1] (half adder) */
     private[Versal] class Counter2_11 extends Counter((Array(2), Array(1, 1)), 1) with Exact
@@ -830,27 +838,23 @@ private[comptree] object Counters {
 
     /** Function to compute the signature for a composed counter
      * 
-     * @param atom1 the first atom
-     * @param atom2 the second atom
-     * @return the signature arising from the two atoms' composition
+     * @param atoms a list of atoms to compose
+     * @return the signature arising from the atoms' composition
      */
-    private[Versal] def compose(atom1: VersalAtom, atom2: VersalAtom): (Array[Int], Array[Int]) = {
-      val ins = {
-        val comb = atom1.inSig ++ atom2.inSig
-        comb(0) += 1
-        comb
-      }
-      val outs = Array(1, 1, 1, 1, 1)
+    private[Versal] def compose(atoms: Seq[VersalAtom]): (Array[Int], Array[Int]) = {
+      require(!atoms.isEmpty && atoms.length <= 4, "can only compose between 1 and 4 atoms")
+      val ins  = atoms.flatMap(_.inSig).toArray
+      ins(0)  += 1
+      val outs = Array.fill(2*atoms.length + 1)(1)
       (ins, outs)
     }
 
     /** Counter composed from two atoms
      * 
-     * @param atom1 the first atom
-     * @param atom2 the second atom
+     * @param atoms a list of atoms to compose
      */
-    private[Versal] class ComposedCounter(val atom1: VersalAtom, val atom2: VersalAtom)
-      extends Counter(compose(atom1, atom2), atom1.luts + atom2.luts) with Exact
+    private[Versal] class ComposedCounter(val atoms: Seq[VersalAtom])
+      extends Counter(compose(atoms), atoms.map(_.luts).sum) with Exact
 
     /** Ripple-sum counter with signature (2n+1 : n,1]
      * 
@@ -879,7 +883,7 @@ private[comptree] object Counters {
       (new Counter25_121),
       (new Counter7_111),
       (new Counter10_42)
-    )
+    ) ++ (Seq.fill(4) { new Atom22 } ++ Seq.fill(4) { new Atom14 }).combinations(4).map(atoms => new ComposedCounter(atoms))
 
     /** Collection of approximate and exact counters */
     lazy val approxCounters: Seq[Counter] = exactCounters ++ Seq(
@@ -1134,6 +1138,120 @@ private[comptree] object Counters {
 
             // Outputs: [z2 = out(2), z1 = out(1), z0 = out(0)]
             io.out := lutZ.io.O52 ## lutZ.io.O51 ## lutC2.io.O51
+
+          case comp: ComposedCounter =>
+            /** Instantiate a LOOKAHEAD8 block and connect the atoms to it */
+
+            /** Build the LUT structure of an atom (2,2)
+             * 
+             * @param inputs the input bits to the structure
+             * @param cins the input carries to the structure
+             * @return a triple of (O51s, O52s, PROPs) output bits
+             * 
+             * Implementation of the atom from Hossfeld et al. [2024]
+             */
+            def buildAtom22(inputs: UInt, cins: UInt): (UInt, UInt, UInt) = {
+              // Boolean functions for the LUT
+              val lutFO51 = (ins: Seq[Boolean]) => ins(0) ^ ins(1) ^ ins(4)
+              val lutFO52 = (ins: Seq[Boolean]) => {
+                (ins(0) && ins(1)) || (ins(0) && ins(4)) || (ins(1) && ins(4))
+              }
+
+              // Inputs: (a0 = inputs(0), a1 = inputs(1), false, false, cins(0), false)
+              val lut0 = Module(new LUT6CY(genLUT6CYInitString(lutFO51, lutFO52)))
+              lut0.io.I0 := inputs(0)
+              lut0.io.I1 := inputs(1)
+              lut0.io.I2 := false.B
+              lut0.io.I3 := false.B
+              lut0.io.I4 := cins(0)
+
+              // Inputs: (b0 = inputs(2), b1 = inputs(3), false, false, cins(1), false)
+              val lut1 = Module(new LUT6CY(genLUT6CYInitString(lutFO51, lutFO52)))
+              lut1.io.I0 := inputs(2)
+              lut1.io.I1 := inputs(3)
+              lut1.io.I2 := false.B
+              lut1.io.I3 := false.B
+              lut1.io.I4 := cins(1)
+
+              // Outputs combined
+              (lut1.io.O51 ## lut0.io.O51, lut1.io.O52 ## lut0.io.O52, lut1.io.PROP ## lut0.io.PROP)
+            }
+
+            /** Build the LUT structure of an atom (1,4)
+             * 
+             * @param inputs the input bits to the structure
+             * @param cins the input carries to the structure
+             * @return a triple of (O51s, O52s, PROPs) output bits
+             * 
+             * Implementation of the atom from Hossfeld et al. [2024]
+             */
+            def buildAtom14(inputs: UInt, cins: UInt): (UInt, UInt, UInt) = {
+              // Boolean functions for the two LUTs
+              val lut0FO51 = (ins: Seq[Boolean]) => ins.take(5).reduce(_ ^ _)
+              val lut0FO52 = (ins: Seq[Boolean]) => {
+                val s = ins.take(3).reduce(_ ^ _)
+                (s && ins(3)) || (s && ins(4)) || (ins(3) && ins(4))
+              }
+              val lut1FO51 = (ins: Seq[Boolean]) => {
+                val c = (ins(0) && ins(1)) || (ins(0) && ins(2)) || (ins(1) && ins(2))
+                c ^ ins(3) ^ ins(4)
+              }
+              val lut1FO52 = (ins: Seq[Boolean]) => {
+                val c = (ins(0) && ins(1)) || (ins(0) && ins(2)) || (ins(1) && ins(2))
+                (c && ins(3)) || (c && ins(4)) || (ins(3) && ins(4))
+              }
+
+              // Inputs: (a0 = inputs(0), a1 = inputs(1), a2 = inputs(2), a3 = inputs(3), a4 = cins(0), false)
+              val lut0 = Module(new LUT6CY(genLUT6CYInitString(lut0FO51, lut0FO52)))
+              lut0.io.I0 := inputs(0)
+              lut0.io.I1 := inputs(1)
+              lut0.io.I2 := inputs(2)
+              lut0.io.I3 := inputs(3)
+              lut0.io.I4 := cins(0)
+
+              // Inputs: (a0 = inputs(0), a1 = inputs(1), a2 = inputs(2), a3 = inputs(4), a4 = cins(1), false)
+              val lut1 = Module(new LUT6CY(genLUT6CYInitString(lut1FO51, lut1FO52)))
+              lut1.io.I0 := inputs(0)
+              lut1.io.I1 := inputs(1)
+              lut1.io.I2 := inputs(2)
+              lut1.io.I3 := inputs(4)
+              lut1.io.I4 := cins(1)
+
+              // Outputs combined
+              (lut1.io.O51 ## lut0.io.O51, lut1.io.O52 ## lut0.io.O52, lut1.io.PROP ## lut0.io.PROP)
+            }
+
+            // Split the inputs between the atoms and the LOOKAHEAD8 block
+            val ins = Wire(MixedVec(Bool(), comp.atoms.map { atom => UInt(atom.inSig.sum.W) } :_*))
+            ins := io.in.asTypeOf(ins)
+
+            // Instantiate a LOOKAHEAD8 block and get its carry and propagate in-/outputs
+            val look8 = Module(new LOOKAHEAD8("TRUE", "TRUE", "TRUE", "TRUE"))
+            val look8CYs   = look8.allCYs
+            val look8COs   = look8.allCOs
+            val look8Props = look8.allProps
+            // Default assignments to avoid unconnected wires
+            look8CYs  .foreach(_ := false.B)
+            look8Props.foreach(_ := false.B)
+            look8.io.CIN := ins(0)
+
+            // Generate the LUT structure of the atoms and connect them to the LOOKAHEAD8
+            val luts = comp.atoms.zipWithIndex.map {
+              case (_: Atom22, i) => buildAtom22(ins(i+1), look8COs(2*i+1) ## look8COs(2*i))
+              case (_: Atom14, i) => buildAtom14(ins(i+1), look8COs(2*i+1) ## look8COs(2*i))
+              case (atom, _)      =>
+                throw new IllegalArgumentException(s"cannot generate hardware for unsupported atom ${atom}")
+            }
+            luts.zipWithIndex.foreach { case ((_, cos, props), i) =>
+              look8CYs(2*i)       := cos(0)
+              look8CYs(2*i + 1)   := cos(1)
+
+              look8Props(2*i)     := props(0)
+              look8Props(2*i + 1) := props(1)
+            }
+
+            // Outputs: [carry out, sum bits]
+            io.out := look8COs(2*comp.atoms.length - 1) ## VecInit(luts.reverse.map(_._1)).asUInt
 
           case _ => throw new IllegalArgumentException(s"cannot generate hardware for unsupported counter ${counter}")
         }
