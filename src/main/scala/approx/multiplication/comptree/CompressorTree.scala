@@ -6,6 +6,7 @@ import chisel3.util.experimental.FlattenInstance
 import scala.collection.mutable
 
 import Counters._
+import TerminalAdders._
 
 /** Compressor tree generator object */
 object CompressorTree {
@@ -31,8 +32,6 @@ object CompressorTree {
  * 
  * Not expected to be manually instantiated by users. Instead, one may rely
  * on the companion object for a simplified interface to this generator.
- * 
- * @todo Update to make use of the state in LUT placement and pipelining.
  */
 private[comptree] class CompressorTree(val sig: Signature, context: Context) extends Module with FlattenInstance {
   private val state = new State()
@@ -44,13 +43,20 @@ private[comptree] class CompressorTree(val sig: Signature, context: Context) ext
     val out = Output(UInt(outW.W))
   })
 
-  // Select the appropriate set of counters and sort them by the desired 
-  // fitness metric
+  // Select the appropriate sets of regular and variable-length counters
+  // and sort them by the desired fitness metric. For the latter, only
+  // evaluate these metrics at a length of three, as this seems a good
+  // balancing point in Hossfeld et al. [2024]
   val isApprox = context.approximations.exists(_.isInstanceOf[Miscounting])
   private val counters = (if (isApprox) context.counters.approxCounters else context.counters.exactCounters)
     .sortBy { cntr  => context.metric match {
     case FitnessMetric.Efficiency => cntr.efficiency
     case FitnessMetric.Strength   => cntr.strength
+  }}.reverse
+  private val vlcounters = (if (isApprox) context.counters.approxVarLenCounters else context.counters.exactVarLenCounters)
+    .sortBy { cntr  => context.metric match {
+    case FitnessMetric.Efficiency => cntr.efficiency(3)
+    case FitnessMetric.Strength   => cntr.strength(3)
   }}.reverse
 
   // Generate and connect the inputs to a bit matrix
@@ -58,7 +64,8 @@ private[comptree] class CompressorTree(val sig: Signature, context: Context) ext
 
   // Iteratively compress the bit matrix till the compression goal is reached
   private val mtrcs = mutable.ArrayBuffer(inMtrx)
-  while (!mtrcs.last.meetsGoal(context.goal)) mtrcs += compress(mtrcs.last, counters)
+  while (!mtrcs.last.meetsGoal(context.goal))
+    mtrcs += compress(mtrcs.last, counters, vlcounters)
 
   // Perform a final summation and output the result
   io.out := finalSummation(mtrcs.last)
@@ -124,14 +131,16 @@ private[comptree] class CompressorTree(val sig: Signature, context: Context) ext
    * 
    * @param bits the input bit matrix
    * @param cntrs the appropriate available counters
+   * @param vlcntrs the appropriate available variable-length counters
    * @return the bit matrix after compression, before final summation
    */
-  private[CompressorTree] def compress(bits: BitMatrix, cntrs: Seq[Counter]): BitMatrix = {
+  private[CompressorTree] def compress(bits: BitMatrix, cntrs: Seq[Counter], vlcntrs: Seq[VarLenCounter]): BitMatrix = {
     state.addStage()
 
     // Place a new counter in the bit matrix while possible
     val res = new BitMatrix()
-    while (!bits.meetsGoal(context.goal)) placeLargestCntr(cntrs, bits, res)
+    while (!bits.meetsGoal(context.goal))
+      placeLargestCntr(cntrs, vlcntrs, bits, res)
 
     // Transfer any remaining bits to the next stage
     transferBits(bits, res)
@@ -142,6 +151,7 @@ private[comptree] class CompressorTree(val sig: Signature, context: Context) ext
    * or efficiency) in a compression stage
    * 
    * @param cntrs the selection of counters to pick from
+   * @param vlcntrs the selection of variable-length counters to pick from
    * @param inBits the current bit matrix (will be updated)
    * @param outBits the output bit matrix (will be updated)
    * 
@@ -153,7 +163,7 @@ private[comptree] class CompressorTree(val sig: Signature, context: Context) ext
    * process of a column (i.e., if its placement brings a column's bit count
    * below the compression goal)
    */
-  private[CompressorTree] def placeLargestCntr(cntrs: Seq[Counter], inBits: BitMatrix, outBits: BitMatrix): Unit = {
+  private[CompressorTree] def placeLargestCntr(cntrs: Seq[Counter], vlcntrs: Seq[VarLenCounter], inBits: BitMatrix, outBits: BitMatrix): Unit = {
     // Find the least significant column that still needs compression
     val lsColOpt = inBits.bits
       .zipWithIndex
@@ -161,34 +171,68 @@ private[comptree] class CompressorTree(val sig: Signature, context: Context) ext
 
     lsColOpt match {
       case Some(lsCol) =>
-        // Pick the best counter that fits in the bit matrix starting from
-        // the found, least significant column
-        val bestCntrOpt = cntrs.collectFirst {
-          case cntr if canPlaceCntr(cntr, inBits, outBits, lsCol) => cntr
+        // Pick the best regular and variable-length counters that fit in
+        // the bit matrix starting from the least significant column found
+        val bestRegCntrOpt = cntrs.collectFirst {
+          case rcntr if canPlaceCntr(rcntr, inBits, outBits, lsCol) =>
+            val mtrc = context.metric match {
+              case FitnessMetric.Efficiency => rcntr.efficiency
+              case FitnessMetric.Strength   => rcntr.strength
+            }
+            (rcntr, mtrc)
+        }
+        val bestVLCntrOpt = vlcntrs.collectFirst {
+          case vlcntr if canPlaceVLCntr(vlcntr, inBits, lsCol) => // search for length 1
+            val len  = maxVLCntrLen(vlcntr, inBits, lsCol)
+            val mtrc = context.metric match {
+              case FitnessMetric.Efficiency => vlcntr.efficiency(len)
+              case FitnessMetric.Strength   => vlcntr.strength(len)
+            }
+            (vlcntr, len, mtrc)
+        }
+
+        // Select the best of the two counters
+        val bestCntrOpt = (bestRegCntrOpt, bestVLCntrOpt) match {
+          case (Some((rcntr, rMtrc)), Some((vlcntr, len, vlMtrc))) =>
+            if (rMtrc >= vlMtrc) Some((rcntr, 0)) else Some((vlcntr, len))
+          case (Some((rcntr, _)), _) => Some((rcntr, 0))
+          case (_, Some((vlcntr, len, _))) => Some((vlcntr, len))
+          case _ => None
         }
 
         // Construct the counter and connect it accordingly
-        bestCntrOpt match {
-          case Some(cntr) =>
-            state.addCounter(cntr)
+        val (inSig, outSig, hwCntr) = bestCntrOpt match {
+          case Some((rcntr: Counter, _)) => // regular counter
+            state.addCounter(rcntr)
 
-            val hwCntr = context.counters.construct(cntr, state)
+            val hwCntr = context.counters.construct(rcntr, state)
+            val inSig  = rcntr.sig._1
+            val outSig = rcntr.sig._2
+            (inSig, outSig, hwCntr)
 
-            // ... inputs first
-            hwCntr.io.in := VecInit((0 until cntr.sig._1.length).flatMap { col =>
-              (0 until cntr.sig._1(col)).map(_ => inBits.popBit(col + lsCol))
-            }.reverse).asUInt
+          case Some((vlcntr: VarLenCounter, len: Int)) => // variable-length counter
+            state.addVLCounter(vlcntr, len)
 
-            // ... outputs second
-            var index = 0
-            (0 until cntr.sig._2.length).foreach { col =>
-              (0 until cntr.sig._2(col)).foreach { _ =>
-                outBits.insertBit(hwCntr.io.out(index), col + lsCol)
-                index += 1
-              }
-            }
+            val hwCntr = context.counters.construct(vlcntr, len, state)
+            val inSig  = vlcntr.inSigFn(len)
+            val outSig = vlcntr.outSigFn(len)
+            (inSig, outSig, hwCntr)
 
           case _ => throw new Exception("cannot place a counter in input bit matrix")
+        }
+
+        // ... inputs first
+        hwCntr.io.in := VecInit((0 until inSig.length).flatMap { col =>
+          (0 until inSig(col)).map(_ => inBits.popBit(col + lsCol))
+        }.reverse).asUInt
+
+        // ... outputs second
+        var index = 0
+        (0 until outSig.length).foreach { col =>
+          (0 until outSig(col)).foreach { _ =>
+            outBits.insertBit(hwCntr.io.out(index), col + lsCol)
+            index += 1
+          }
         }
 
       case _ => throw new Exception("input bit matrix does not need compression")
@@ -228,6 +272,53 @@ private[comptree] class CompressorTree(val sig: Signature, context: Context) ext
     }
   }
 
+  /** Check whether a particular variable-length counter fits in an input
+   * bit matrix starting from the given column
+   * 
+   * @param vlcntr the variable-length counter
+   * @param inBits the input bit matrix
+   * @param lsCol the least significant (starting) column
+   * @return true if the counter fits, false otherwise
+   */
+  private[CompressorTree] def canPlaceVLCntr(vlcntr: VarLenCounter, inBits: BitMatrix, lsCol: Int): Boolean = {
+    val inSig = vlcntr.inSigFn(1) // search for length 1
+    inSig.zipWithIndex.forall { case (cnt, col) => inBits.colCount(lsCol + col) >= cnt }
+  }
+
+  /** Determine the maximum length of a variable-length counter that
+   * can be placed in an input bit matrix starting from the given column
+   * 
+   * @param vlcntr the variable-length counter
+   * @param inBits the input bit matrix
+   * @param lsCol the least significant (starting) column
+   * @return the maximum length of the variable-length counter that can be placed
+   */
+  private[CompressorTree] def maxVLCntrLen(vlcntr: VarLenCounter, inBits: BitMatrix, lsCol: Int): Int = {
+    /** Binary search to find the maximum permissible length */
+    def search(low: Int, high: Int, maxLen: Int): Int = {
+      if (low >= high) {
+        maxLen
+      } else {
+        val mid   = (low + high) / 2
+        val inSig = vlcntr.inSigFn(mid)
+        val fits  = inSig.zipWithIndex.forall { case (cnt, col) =>
+          inBits.colCount(lsCol + col) >= cnt
+        }
+
+        if (fits) search(mid + 1, high, mid)
+        else search(low, mid, maxLen)
+      }
+    }
+
+    /** Default to length 1 as this function is called after `canPlaceVLCntr`.
+     * Maximum length is constrained either by the width of the input matrix
+     * or the height of its tallest column
+     */
+    val lowInit  = 2
+    val highInit = scala.math.max(inBits.length - lsCol, inBits.bits.map(_.size).max)
+    search(lowInit, highInit, 1)
+  }
+
   /** Check if the stacked pair of an input and an output bit matrix
    * meet the compression goal
    * 
@@ -262,8 +353,6 @@ private[comptree] class CompressorTree(val sig: Signature, context: Context) ext
    * 
    * For now, this implementation relies on the synthesis tools to remove
    * gates from constant-low bit positions.
-   * 
-   * @todo Implement ternary and quaternary adders for FPGAs.
    */
   private[CompressorTree] def finalSummation(bits: BitMatrix): UInt = {
     require((0 until outW).forall(i => bits.colCount(i) <= context.goal))
@@ -273,12 +362,26 @@ private[comptree] class CompressorTree(val sig: Signature, context: Context) ext
       (bits.colCount(i) until context.goal).foreach(_ => bits.insertBit(false.B, i))
     }
 
-    // Collect the operands as integers and sum them
+    // Collect the operands as integers
     val oprs = WireDefault(VecInit((0 until context.goal).map { _ =>
       val op = Wire(Vec(outW, Bool()))
       (0 until outW).foreach(i => op(i) := bits.popBit(i))
       op.asUInt
     }))
-    oprs.reduceTree(_ + _)
+
+    // Depending on the target device, instantiate a different adder
+    context.terminal match {
+      case "ternary" =>
+        val adder = Module(new TernaryAdder(outW))
+        adder.io.in := oprs
+        adder.io.out
+      case "quaternary" =>
+        val adder = Module(new QuaternaryAdder(outW))
+        adder.io.in := oprs
+        adder.io.out
+      case _ =>
+        // Default to a simple binary adder tree
+        oprs.reduceTree(_ + _)
+    }
   }
 }

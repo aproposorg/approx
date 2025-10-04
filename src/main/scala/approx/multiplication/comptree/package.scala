@@ -7,7 +7,7 @@ import scala.collection.mutable
 
 package object comptree {
 
-  import Counters.{Counter, HardwareCounter}
+  import Counters.{Counter, HardwareCounter, VarLenCounter}
 
   /** Compressor approximation styles
    * 
@@ -143,10 +143,14 @@ package object comptree {
    * when generating compressors for FPGAs.
    */
   private[comptree] class State {
-    private val _counters = mutable.ArrayBuffer.empty[mutable.HashMap[Counter, Int]]
+    private val _counters   = mutable.ArrayBuffer.empty[mutable.HashMap[Counter, Int]]
+    private val _vlcounters = mutable.ArrayBuffer.empty[mutable.HashMap[(VarLenCounter, Int), Int]]
 
     /** Return the counters */
     def counters = _counters.map(_.toMap).toSeq
+
+    /** Return the variable-length counters */
+    def vlcounters = _vlcounters.map(_.toMap).toSeq
 
     /** Add a stage */
     def addStage(): Unit = _counters.append(mutable.HashMap.empty[Counter, Int])
@@ -155,6 +159,13 @@ package object comptree {
     def addCounter(cntr: Counter): Unit = {
       require(_counters.nonEmpty)
       _counters.last(cntr) = _counters.last.getOrElse(cntr, 0) + 1
+    }
+
+    /** Add a variable-length counter to this stage */
+    def addVLCounter(cntr: VarLenCounter, len: Int): Unit = {
+      require(_vlcounters.nonEmpty)
+      val key = (cntr, len)
+      _vlcounters.last(key) = _vlcounters.last.getOrElse(key, 0) + 1
     }
 
     /** For hierarchy building */
@@ -175,8 +186,9 @@ package object comptree {
   private[comptree] class Context(val outW: Int, targetDevice: String, mtrc: Char, approx: Seq[Approximation]) {
     private val _device: String = targetDevice.toLowerCase()
     private val _mtrc: Char = mtrc.toLower
-    val goal: Int = _device match {
+    val goal = _device match {
       case "7series" | "ultrascale" => 3
+      case "versal" => 4
       case _ => 2
     }
     val metric = _mtrc match {
@@ -190,6 +202,11 @@ package object comptree {
       case "versal" => Counters.Versal
       case "intel" => Counters.Intel
       case _ => Counters.ASIC
+    }
+    val terminal = _device match {
+      case "7series" | "ultrascale" => "ternary"
+      case "versal" => "quaternary"
+      case _ => ""
     }
     val approximations = {
       // Remove dominated column-wise approximations

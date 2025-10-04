@@ -217,8 +217,6 @@ class CSA(width: Int, val stages: Int) extends Adder(width) {
 /** Exact parallel prefix adder base class
  * 
  * @param width the width of the adder
- * 
- * @todo Remove redundant extension bits in this design.
  */
 abstract class PPA(width: Int) extends Adder(width) {
   /** Bundle of generate and propagate bits */
