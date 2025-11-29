@@ -103,11 +103,11 @@ All exact designs are based on descriptions in [Ercegovac and Lang](https://www.
 | Compressor 5:3                    |                 | `Compressor5to3`                      | [approx.multiplication.Compressor5to3](./src/main/scala/approx/multiplication/Exact.scala#L56)                          |
 | Compressor 7:3                    |                 | `Compressor7to3`                      | [approx.multiplication.Compressor7to3](./src/main/scala/approx/multiplication/Exact.scala#L74)                          |
 | 2x2-bit multiplier                |                 | `TwoxTwo`                             | [approx.multiplication.TwoxTwo](./src/main/scala/approx/multiplication/Exact.scala#L97)                                 |
-| Radix-2 array multiplier          | Both            | `Radix2Multiplier`                    | [approx.multiplication.Radix2Multiplier](./src/main/scala/approx/multiplication/Exact.scala#L119)                       |
+| Radix-2 array multiplier          | Both            | `Radix2Multiplier`                    | [approx.multiplication.Radix2Multiplier](./src/main/scala/approx/multiplication/Exact.scala#L145)                       |
 | Adaptive radix-2 array multiplier | Both            | `AdaptiveRadix2Multiplier`            | [approx.multiplication.AdaptiveRadix2Multiplier](./src/main/scala/approx/multiplication/AdaptiveRadix2Multiplier.scala) |
-| Radix-4 array multiplier          | Both            | `Radix4Multiplier`                    | [approx.multiplication.Radix4Multiplier](./src/main/scala/approx/multiplication/Exact.scala#L230)                       |
-| Recursive multiplier              | Both            | `RecursiveMultiplier`                 | [approx.multiplication.RecursiveMultiplier](./src/main/scala/approx/multiplication/Exact.scala#L431)                    |
-| Alphabet-set multiplier           | Both            | `AlphabetSetMultiplier`               | [approx.multiplication.AlphabetSetMultiplier](./src/main/scala/approx/multiplication/Exact.scala#L517)                  |
+| Radix-4 array multiplier          | Both            | `Radix4Multiplier`                    | [approx.multiplication.Radix4Multiplier](./src/main/scala/approx/multiplication/Exact.scala#L303)                       |
+| Recursive multiplier              | Both            | `RecursiveMultiplier`                 | [approx.multiplication.RecursiveMultiplier](./src/main/scala/approx/multiplication/Exact.scala#L538)                    |
+| Alphabet-set multiplier           | Both            | `AlphabetSetMultiplier`               | [approx.multiplication.AlphabetSetMultiplier](./src/main/scala/approx/multiplication/Exact.scala#L625)                  |
 | Radix-2 sequential multiplier     | Unsigned        | `Radix2SeqMultiplier`                 | [approx.multiplication.Radix2SeqMultiplier](./src/main/scala/approx/multiplication/ExactSequential.scala)               |
 
 ## Approximate designs
@@ -151,11 +151,11 @@ The `approx.accumulation` library currently only contains a number of exact, non
 
 | Type                          | Signed/unsigned | Name                          | Code location                                                                                            |
 |-------------------------------|-----------------|-------------------------------|----------------------------------------------------------------------------------------------------------|
-| Simple accumulator            | Both            | `SimpleAccumulator`           | [approx.accumulation.SimpleAccumulator](./src/main/scala/approx/accumulation/Exact.scala#L14)            |
-| Multiply accumulator          | Both            | `MultiplyAccumulator`         | [approx.accumulation.MultiplyAccumulator](./src/main/scala/approx/accumulation/Exact.scala#L34)          |
-| Bit matrix accumulator        |                 | `BitMatrixAccumulator`        | [approx.accumulation.BitMatrixAccumulator](./src/main/scala/approx/accumulation/Exact.scala#L58)         |
-| Parallel simple accumulator   | Both            | `ParallelSimpleAccumulator`   | [approx.accumulation.ParallelSimpleAccumulator](./src/main/scala/approx/accumulation/Exact.scala#L108)   |
-| Parallel multiply accumulator | Both            | `ParallelMultiplyAccumulator` | [approx.accumulation.ParallelMultiplyAccumulator](./src/main/scala/approx/accumulation/Exact.scala#L156) |
+| Simple accumulator            | Both            | `SimpleAccumulator`           | [approx.accumulation.SimpleAccumulator](./src/main/scala/approx/accumulation/Exact.scala#L19)            |
+| Multiply accumulator          | Both            | `MultiplyAccumulator`         | [approx.accumulation.MultiplyAccumulator](./src/main/scala/approx/accumulation/Exact.scala#L54)          |
+| Bit matrix accumulator        |                 | `BitMatrixAccumulator`        | [approx.accumulation.BitMatrixAccumulator](./src/main/scala/approx/accumulation/Exact.scala#L96)         |
+| Parallel simple accumulator   | Both            | `ParallelSimpleAccumulator`   | [approx.accumulation.ParallelSimpleAccumulator](./src/main/scala/approx/accumulation/Exact.scala#L158)   |
+| Parallel multiply accumulator | Both            | `ParallelMultiplyAccumulator` | [approx.accumulation.ParallelMultiplyAccumulator](./src/main/scala/approx/accumulation/Exact.scala#L219) |
 
 ## Approximate designs
 
