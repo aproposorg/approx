@@ -18,7 +18,7 @@ trait ExactSeqDividerSpec extends AnyFlatSpec with ChiselSim {
    * @param q the expected quotient
    * @param r the expected remainder
    */
-  def pokeAndExpect[T <: Divider](a: UInt, b: UInt)(q: UInt, r: UInt)(implicit dut: T) = {
+  def pokeAndExpect[T <: SeqDivider](a: UInt, b: UInt)(q: UInt, r: UInt)(implicit dut: T) = {
     // Advance time while the divider is busy
     while (dut.io.busy.peek().litToBoolean) dut.clock.step()
     // Supply the input values and advance time to let it consume them
@@ -43,7 +43,7 @@ trait ExactSeqDividerSpec extends AnyFlatSpec with ChiselSim {
    * 
    * @param dut a divider module
    */
-  def simpleTest[T <: Divider](implicit dut: T) = {
+  def simpleTest[T <: SeqDivider](implicit dut: T) = {
     val width = dut.io.q.getWidth
     require(width >= log2Up(42), "divider must be wide enough to take 42 as input")
 
@@ -78,7 +78,7 @@ trait ExactSeqDividerSpec extends AnyFlatSpec with ChiselSim {
    * 
    * @param dut an unsigned divider module
    */
-  def randomUnsignedTest[T <: Divider](implicit dut: T) = {
+  def randomUnsignedTest[T <: SeqDivider](implicit dut: T) = {
     val w   = dut.io.a.getWidth
     val n   = w << 2
     val rng = new scala.util.Random(0)
@@ -91,7 +91,7 @@ trait ExactSeqDividerSpec extends AnyFlatSpec with ChiselSim {
       pokeAndExpect(BigInt(w, rng).U, 0.U)(BigInt(w, rng).U, BigInt(w, rng).U)
     }
 
-    // Divice by one
+    // Divide by one
     (0 until n).foreach { _ =>
       val q = BigInt(w, rng).U
       pokeAndExpect(q, 1.U)(q, 0.U)

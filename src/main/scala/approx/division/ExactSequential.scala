@@ -12,7 +12,7 @@ import chisel3.util.log2Up
  * 
  * Only works for unsigned numbers.
  */
-class Radix2SeqDivider(width: Int) extends Divider(width) {
+class Radix2SeqDivider(width: Int) extends SeqDivider(width) {
   // Internal registers for keeping track of quotient and remainder
   val bInt = Reg(UInt(width.W))
   val quo  = Reg(UInt(width.W))
