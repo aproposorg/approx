@@ -136,6 +136,8 @@ The `approx.division` library currently only contains an exact, sequential radix
 
 | Type                       | Signed/unsigned | Name               | Code location                                                                                  |
 |----------------------------|-----------------|--------------------|------------------------------------------------------------------------------------------------|
+| Radix-2 divider            | Unsigned        | `Radix2Divider`    | [approx.division.Radix2Divider](./src/main/scala/approx/division/Exact.scala#L10)              |
+| Radix-4 divider            | Unsigned        | `Radix4Divider`    | [approx.division.Radix4Divider](./src/main/scala/approx/division/Exact.scala#L34)              |
 | Radix-2 sequential divider | Unsigned        | `Radix2SeqDivider` | [approx.division.Radix2SeqDivider](./src/main/scala/approx/division/ExactSequential.scala#L15) |
 
 ## Approximate designs
