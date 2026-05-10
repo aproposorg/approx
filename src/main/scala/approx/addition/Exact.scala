@@ -1,8 +1,7 @@
 package approx.addition
 
 import chisel3._
-import chisel3.experimental.IntParam
-import chisel3.util.{log2Up, HasBlackBoxResource}
+import chisel3.util.log2Up
 
 /** Accurate half-adder */
 class HalfAdder extends HA {
@@ -42,8 +41,8 @@ class RCA(width: Int) extends Adder(width) {
  * 
  * @param width the width of the adder
  */
-private[addition] class VRCA(val width: Int) extends BlackBox(Map("width" -> IntParam(width))) with HasBlackBoxResource {
-  val io = IO(new AdderIO(width))
+private[addition] class VRCA(val width: Int) extends ExtModule(Map("width" -> IntParam(width))) {
+  val io = FlatIO(new AdderIO(width))
   addResource("/VRCA.v")
 }
 
