@@ -232,7 +232,7 @@ class ParallelMultiplyAccumulator(nIn: Int, inAW: Int, inBW: Int, accW: Int, sig
       (BigInt(-1) << upper) + (BigInt(1) << midLo) + (BigInt(1) << midHi)
     }.sum else BigInt(0)
 
-    /* Compute the number of dots in a column of a radix-2 partial product tree
+    /** Compute the number of dots in a column of a radix-2 partial product tree
      * 
      * @param col the index of the column
      * @return the number of bits in the column
@@ -244,7 +244,7 @@ class ParallelMultiplyAccumulator(nIn: Int, inAW: Int, inBW: Int, accW: Int, sig
       else 0
     }
 
-    /* Compute the least significant row index to compress from within a given 
+    /** Compute the least significant row index to compress from within a given 
      * column of radix-2 partial products
      * 
      * @param col the index of the column
