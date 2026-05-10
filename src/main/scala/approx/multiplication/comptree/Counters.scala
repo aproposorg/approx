@@ -618,7 +618,7 @@ private[comptree] object Counters {
           case comp: ComposedCounter =>
             /** Instantiate a CARRY4 block and connect the two atoms to it */
 
-            /** Build the LUT structure of an atom (2,2)
+            /* Build the LUT structure of an atom (2,2)
              * 
              * @param inputs the input bits to the structure
              * @return a tuple of (O6s, O5s) output bits
@@ -652,7 +652,7 @@ private[comptree] object Counters {
               (lut1.io.O6 ## lut0.io.O6, lut1.io.O5 ## lut0.io.O5)
             }
 
-            /** Build the LUT structure of an atom (1,4)
+            /* Build the LUT structure of an atom (1,4)
              * 
              * @param inputs the input bits to the structure
              * @return a tuple of (O6s, O5s) output bits
@@ -687,7 +687,7 @@ private[comptree] object Counters {
               (lut1.io.O6 ## lut0.io.O6, lut1.io.O5 ## lut0.io.O5)
             }
 
-            /** Build the LUT structure of an atom (0,6)
+            /* Build the LUT structure of an atom (0,6)
              * 
              * @param inputs the input bits to the structure
              * @return a tuple of (O6s, O5s) output bits
@@ -1142,7 +1142,7 @@ private[comptree] object Counters {
           case comp: ComposedCounter =>
             /** Instantiate a LOOKAHEAD8 block and connect the atoms to it */
 
-            /** Build the LUT structure of an atom (2,2)
+            /* Build the LUT structure of an atom (2,2)
              * 
              * @param inputs the input bits to the structure
              * @param cins the input carries to the structure
@@ -1177,7 +1177,7 @@ private[comptree] object Counters {
               (lut1.io.O51 ## lut0.io.O51, lut1.io.O52 ## lut0.io.O52, lut1.io.PROP ## lut0.io.PROP)
             }
 
-            /** Build the LUT structure of an atom (1,4)
+            /* Build the LUT structure of an atom (1,4)
              * 
              * @param inputs the input bits to the structure
              * @param cins the input carries to the structure
