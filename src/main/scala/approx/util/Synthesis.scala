@@ -48,7 +48,6 @@ object Synthesis {
       val synTcl = s"""
         |read_verilog ${svFile}
         |synth_design -top ${topName} -part ${part}
-        |opt_design
         |report_utilization -file ${synRptFile}
         |write_checkpoint -force ${synDcpFile}
       """.stripMargin
@@ -59,7 +58,8 @@ object Synthesis {
       val implRptFile = s"${topName}_impl.rpt"
       val implDcpFile = s"${topName}_impl.dcp"
       val implTcl = s"""
-        |read_checkpoint -force ${synDcpFile}
+        |read_checkpoint ${synDcpFile}
+        |link_design
         |opt_design
         |place_design
         |route_design
