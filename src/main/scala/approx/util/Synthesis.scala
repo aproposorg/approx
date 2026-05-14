@@ -27,7 +27,7 @@ object Synthesis {
       // Generate SystemVerilog source first to get the module name;
       // regex extraction assumes the top module is the last one defined
       val moduleNameRegex = "module\\s+([A-Za-z_]\\w*)\\s*\\(".r
-      val sv = ChiselStage.emitSystemVerilog(gen())
+      val sv = ChiselStage.emitSystemVerilog(gen(), firtoolOpts = Array("--disable-layers", "Verification"))
       val topName = moduleNameRegex.findAllMatchIn(sv)
         .map(_.group(1)).toList
         .lastOption
