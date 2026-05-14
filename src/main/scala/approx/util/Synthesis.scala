@@ -10,6 +10,10 @@ import scala.util.{Try, Success, Failure}
 
 object Synthesis {
 
+  case class VivadoSynthesisResults(buildDir: String, success: Boolean, synReport: Option[String], lut: Option[Int], ff: Option[Int], dsp: Option[Int])
+
+  case class VivadoImplementationResults(buildDir: String, success: Boolean, implReport: Option[String], lut: Option[Int], ff: Option[Int], dsp: Option[Int])
+
   /** Generates Vivado synthesis and implementation TCL scripts along with the
    * corresponding SystemVerilog source for a given Chisel module
    * 
@@ -39,28 +43,71 @@ object Synthesis {
 
       // Generate TCL synthesis script
       val synTclFile = s"${topName}_syn.tcl"
+      val synRptFile = s"${topName}_syn.rpt"
+      val synDcpFile = s"${topName}_syn.dcp"
       val synTcl = s"""
         |read_verilog ${svFile}
         |synth_design -top ${topName} -part ${part}
         |opt_design
-        |report_utilization -file ${topName}_syn.rpt
-        |write_checkpoint -force ${topName}_syn.dcp
+        |report_utilization -file ${synRptFile}
+        |write_checkpoint -force ${synDcpFile}
       """.stripMargin
       Files.write(buildDir.resolve(synTclFile), synTcl.getBytes)
 
       // Generate TCL implementation script
       val implTclFile = s"${topName}_impl.tcl"
+      val implRptFile = s"${topName}_impl.rpt"
+      val implDcpFile = s"${topName}_impl.dcp"
       val implTcl = s"""
-        |read_checkpoint -force ${topName}_syn.dcp
+        |read_checkpoint -force ${synDcpFile}
         |opt_design
         |place_design
         |route_design
-        |report_utilization -file ${topName}_impl.rpt
-        |write_checkpoint -force ${topName}_impl.dcp
+        |report_utilization -file ${implRptFile}
+        |write_checkpoint -force ${implDcpFile}
       """.stripMargin
       Files.write(buildDir.resolve(implTclFile), implTcl.getBytes)
 
+      // Generate helper Makefile
+      val make = s"""
+        |SV_FILE            =${svFile}
+        |
+        |VIVADO_SYN_TCL     =${synTclFile}
+        |VIVADO_SYN_REPORT  =${synRptFile}
+        |
+        |VIVADO_IMPL_TCL    =${implTclFile}
+        |VIVADO_IMPL_REPORT =${implRptFile}
+        |
+        |.PHONY: clean
+        |# Remove generated reports
+        |clean:
+        |\trm -f $${VIVADO_SYN_REPORT} $${VIVADO_IMPL_REPORT}
+        |
+        |.PHONY: syn
+        |# Run synthesis to generate synthesis report $${VIVADO_SYN_REPORT}
+        |syn: $${VIVADO_SYN_REPORT}
+        |
+        |$${VIVADO_SYN_REPORT}: $${SV_FILE} $${VIVADO_SYN_TCL}
+        |\tvivado -mode batch -source ${synTclFile}
+        |
+        |.PHONY: impl
+        |# Run implementation to generate implementation report $${VIVADO_IMPL_REPORT}
+        |impl: $${VIVADO_IMPL_REPORT}
+        |
+        |$${VIVADO_IMPL_REPORT}: $${VIVADO_SYN_REPORT} $${VIVADO_IMPL_TCL}
+        |\tvivado -mode batch -source ${implTclFile}
+      """.stripMargin
+      Files.write(buildDir.resolve("Makefile"), make.getBytes)
+
       (buildDir.toString, svFile, synTclFile, implTclFile)
     }
+  }
+
+  def runVivadoSynthesis(dir: String): VivadoSynthesisResults = {
+    ???
+  }
+
+  def runVivadoImplementation(dir: String): VivadoImplementationResults = {
+    ???
   }
 }
