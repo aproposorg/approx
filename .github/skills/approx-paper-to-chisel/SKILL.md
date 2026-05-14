@@ -5,6 +5,7 @@ description: "Use when reading a scientific paper about approximate arithmetic a
 tool-allowances:
   - sbt
   - pdftotext
+  - pdfimages
 ---
 
 # Approximate Arithmetic Paper to Chisel Skill
