@@ -15,7 +15,7 @@ object Synthesis {
   final val BuildDir       = "build"
   final val VivadoBuildDir = s"${BuildDir}/Vivado"
 
-  final val VerilogModuleNameRegex      = """module\s+([A-Za-z_]\w*)\s*\(""".r
+  final val VerilogModuleNameRegex       = """module\s+([A-Za-z_]\w*)\s*\(""".r
 
   final val VivadoSynthesisLUTRegex      = """\|\s*Slice\s+LUTs\*\s*\|\s*(\d+)\s*\|""".r
   final val VivadoImplementationLUTRegex = """\|\s*Slice\s+LUTs\s*\|\s*(\d+)\s*\|""".r
@@ -34,7 +34,19 @@ object Synthesis {
    */
   private[Synthesis] def generateHelperMakefile(dir: String) = {
     Files.createDirectories(Paths.get(dir))
-    Files.write(Paths.get(dir, "Makefile"), "include *.mk".getBytes)
+    val make = s"""
+      |include *.mk
+      |
+      |.PHONY: print-all-variables
+      |# Print all Make variables and their values (excluding environment, default, and automatic variables)
+      |print-all-variables:
+      |	@$$(foreach V,$$(sort $$(.VARIABLES)), \\
+      |		$$(if $$(filter-out environment% default automatic,$$(origin $$V)), \\
+      |			$$(info $$(V) = $$($$(V))) \\
+      |		) \\
+      |	)
+      |""".stripMargin
+    Files.write(Paths.get(dir, "Makefile"), make.getBytes)
   }
 
   /** Run a make target in a given directory
@@ -202,7 +214,7 @@ object Synthesis {
         |.PHONY: vivado-impl
         |# Run implementation to generate implementation report $$(VIVADO_IMPL_REPORT)
         |vivado-impl: $$(VIVADO_IMPL_REPORT)
-      """.stripMargin
+        |""".stripMargin
       Files.write(buildDir.resolve("vivado.mk"), make.getBytes)
 
       // Generate local and common helper Makefiles
