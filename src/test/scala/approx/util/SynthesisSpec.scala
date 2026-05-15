@@ -31,11 +31,31 @@ class SynthesisSpec extends AnyFlatSpec with Matchers {
         case Failure(exp)     => fail(s"Source generation failed with exception: ${exp.getMessage}")
       }
       val results = Synthesis.runVivadoSynthesis(dir)
-      results.synReport shouldBe defined
-      results.lut       shouldBe defined
-      results.ff        shouldBe defined
-      results.dsp       shouldBe defined
-      results.lut       should equal(Some(8))
+      println(s"Synthesis results: ${results}")
+      results.report shouldBe defined
+      results.lut    shouldBe defined
+      results.lut    should equal(Some(8))
+      results.ff     shouldBe defined
+      results.ff     should equal(Some(0))
+      results.dsp    shouldBe defined
+      results.dsp    should equal(Some(0))
+    }
+
+    it should "run Vivado implementation and parse results for an RCA adder" in {
+      val (dir, sv) = Synthesis.generateVivadoSources(() => new approx.addition.RCA(8)) match {
+        case Success(result)  => result
+        case Failure(exp)     => fail(s"Source generation failed with exception: ${exp.getMessage}")
+      }
+      // implementation indirectly calls synthesis
+      val implResults = Synthesis.runVivadoImplementation(dir)
+      println(s"Implementation results: ${implResults}")
+      implResults.report shouldBe defined
+      implResults.lut    shouldBe defined
+      implResults.lut    should equal(Some(8))
+      implResults.ff     shouldBe defined
+      implResults.ff     should equal(Some(0))
+      implResults.dsp    shouldBe defined
+      implResults.dsp    should equal(Some(0))
     }
   } else {
     println("Vivado environment not detected; skipping synthesis tests")
