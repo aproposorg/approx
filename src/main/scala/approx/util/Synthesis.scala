@@ -29,8 +29,6 @@ object Synthesis {
   /** Generate a helper Makefile for synthesis and implementation
    *
    * @param dir the directory where the Makefile should be created
-   *
-   * TODO extend with help and print-all-variables targets
    */
   private[Synthesis] def generateHelperMakefile(dir: String) = {
     Files.createDirectories(Paths.get(dir))
@@ -38,13 +36,26 @@ object Synthesis {
       |include *.mk
       |
       |.PHONY: print-all-variables
-      |# Print all Make variables and their values (excluding environment, default, and automatic variables)
+      |## Print all variables and their values (excluding environment, default, and automatic variables)
       |print-all-variables:
-      |	@$$(foreach V,$$(sort $$(.VARIABLES)), \\
-      |		$$(if $$(filter-out environment% default automatic,$$(origin $$V)), \\
-      |			$$(info $$(V) = $$($$(V))) \\
-      |		) \\
-      |	)
+      |\t@$$(foreach V,$$(sort $$(.VARIABLES)), \\
+      |\t\t$$(if $$(filter-out environment% default automatic,$$(origin $$V)), \\
+      |\t\t\t$$(info $$(V) = $$($$(V))) \\
+      |\t\t) \\
+      |\t)
+      |
+      |.PHONY: help
+      |## Print available targets
+      |help:
+      |\t@awk '\\
+      |\t\t/^## / { help=$$$$0; sub(/^## /, "", help); next } \\
+      |\t\t/^[a-zA-Z0-9_-]+:/ { \\
+      |\t\t\tif (help != "") { \\
+      |\t\t\t\tprintf "  %-24s %s\\n", $$$$1, help; \\
+      |\t\t\t\thelp="" \\
+      |\t\t\t} \\
+      |\t\t} \\
+      |\t' $$(MAKEFILE_LIST)
       |""".stripMargin
     Files.write(Paths.get(dir, "Makefile"), make.getBytes)
   }
@@ -163,41 +174,41 @@ object Synthesis {
         |\tvivado -nolog -nojournal -mode batch -source $$<
         |
         |.PHONY: generate-vivado-project
-        |# Generate Vivado project file
+        |## Generate Vivado project file
         |generate-vivado-project: $$(VIVADO_PROJ_XPR)
         |
         |.PHONY: open-vivado-gui
-        |# Open Vivado GUI with the generated project
+        |## Open Vivado GUI with the generated project
         |open-vivado-gui: $$(VIVADO_PROJ_XPR)
         |\tvivado -nolog -nojournal $$<
         |
         |.PHONY: open-vivado-tcl
-        |# Open Vivado TCL with the generated project
+        |## Open Vivado TCL with the generated project
         |open-vivado-tcl: $$(VIVADO_PROJ_XPR)
         |\tvivado -nolog -nojournal -mode tcl $$<
         |
         |# Helper clean targets for generated files
         |.PHONY: clean-vivado
-        |# Remove all generated Vivado files
+        |## Remove all generated Vivado files
         |clean-vivado: clean-vivado-project clean-vivado-tcl clean-vivado-rpt clean-vivado-dcp
         |
         |.PHONY: clean-vivado-project
-        |# Remove generated Vivado project files
+        |## Remove generated Vivado project files
         |clean-vivado-project:
         |\trm -rf $$(VIVADO_PROJ_DIR)
         |
         |.PHONY: clean-vivado-tcl
-        |# Remove generated TCL scripts
+        |## Remove generated TCL scripts
         |clean-vivado-tcl:
         |\trm -f $$(VIVADO_PROJ_TCL) $$(VIVADO_SYN_TCL) $$(VIVADO_IMPL_TCL)
         |
         |.PHONY: clean-vivado-rpt
-        |# Remove generated reports
+        |## Remove generated reports
         |clean-vivado-rpt:
         |\trm -f $$(VIVADO_SYN_REPORT) $$(VIVADO_IMPL_REPORT)
         |
         |.PHONY: clean-vivado-dcp
-        |# Remove generated checkpoints
+        |## Remove generated checkpoints
         |clean-vivado-dcp:
         |\trm -f $$(VIVADO_SYN_DCP) $$(VIVADO_IMPL_DCP)
         |
@@ -205,14 +216,14 @@ object Synthesis {
         |\tvivado -nolog -nojournal -mode batch -source $$(VIVADO_SYN_TCL)
         |
         |.PHONY: vivado-syn
-        |# Run synthesis to generate synthesis report $$(VIVADO_SYN_REPORT)
+        |## Run synthesis to generate synthesis report $$(VIVADO_SYN_REPORT)
         |vivado-syn: $$(VIVADO_SYN_REPORT)
         |
         |$$(VIVADO_IMPL_REPORT): $$(VIVADO_SYN_REPORT) $$(VIVADO_IMPL_TCL)
         |\tvivado -nolog -nojournal -mode batch -source $$(VIVADO_IMPL_TCL)
         |
         |.PHONY: vivado-impl
-        |# Run implementation to generate implementation report $$(VIVADO_IMPL_REPORT)
+        |## Run implementation to generate implementation report $$(VIVADO_IMPL_REPORT)
         |vivado-impl: $$(VIVADO_IMPL_REPORT)
         |""".stripMargin
       Files.write(buildDir.resolve("vivado.mk"), make.getBytes)
