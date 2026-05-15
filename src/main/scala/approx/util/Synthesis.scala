@@ -6,19 +6,27 @@ import circt.stage.ChiselStage
 
 import java.nio.file.{Files, Paths}
 
+import scala.jdk.CollectionConverters._
+import scala.sys.process._
 import scala.util.{Try, Success, Failure}
 
 object Synthesis {
 
   final val VivadoBuildDir = "build/Vivado"
 
-  case class VivadoSynthesisResults(buildDir: String, success: Boolean, synReport: Option[String], lut: Option[Int], ff: Option[Int], dsp: Option[Int])
+  final val VivadoLUTRegex = """\|\s*Slice\s+LUTs\*\s*\|\s*(\d+)\s*\|""".r
+  final val VivadoFFRegex  = """\|\s*Slice\s+Registers\s*\|\s*(\d+)\s*\|""".r
+  final val VivadoDSPRegex = """\|\s*DSPs\s*\|\s*(\d+)\s*\|""".r
 
-  case class VivadoImplementationResults(buildDir: String, success: Boolean, implReport: Option[String], lut: Option[Int], ff: Option[Int], dsp: Option[Int])
+  case class VivadoSynthesisResults(buildDir: String, synReport: Option[String], lut: Option[Int], ff: Option[Int], dsp: Option[Int])
+
+  case class VivadoImplementationResults(buildDir: String, implReport: Option[String], lut: Option[Int], ff: Option[Int], dsp: Option[Int])
 
   /** Generate a helper Makefile for synthesis and implementation
    *
    * @param dir the directory where the Makefile should be created
+   *
+   * TODO extend with help and print-all-variables targets
    */
   private[Synthesis] def generateHelperMakefile(dir: String) = {
     Files.createDirectories(Paths.get(dir))
@@ -172,8 +180,49 @@ object Synthesis {
     }
   }
 
+  /** Runs Vivado synthesis using the generated Makefile and parses the
+   * resulting synthesis report to extract and bundle resource utilization
+   * metrics into a structured result
+   *
+   * @param dir the directory containing the generated Makefile and sources
+   * @return a [[VivadoSynthesisResults]] instance including synthesis success
+   *         status and resource utilization metrics, if available
+   */
   def runVivadoSynthesis(dir: String): VivadoSynthesisResults = {
-    ???
+    // Attempt to launch Vivado synthesis using the generated Makefile assumed
+    // to exist under dir
+    println(s"Running Vivado synthesis: make -C $dir vivado-syn")
+    val stdout   = new StringBuilder
+    val logger   = ProcessLogger(line => stdout.append(line).append("\n"))
+    val exitCode = Process(Seq("make", "-C", dir, "vivado-syn")).!(logger)
+    if (exitCode != 0) {
+      println(s"Vivado synthesis failed with exit code $exitCode")
+      println(s"Vivado output:\n${stdout}")
+      return VivadoSynthesisResults(dir, None, None, None, None)
+    }
+
+    // Parse synthesis report to extract resource utilization
+    val synReportOpt = {
+      val stream = Files.newDirectoryStream(Paths.get(dir), "*_syn.rpt")
+      try { // get first matching file, if any
+        stream.iterator().asScala.toList.headOption
+      } finally {
+        stream.close()
+      }
+    }
+    synReportOpt match {
+      case None =>
+        println(s"Synthesis report not found in directory: $dir")
+        return VivadoSynthesisResults(dir, None, None, None, None)
+      case _ =>
+    }
+
+    // Read the synthesis report and extract LUT, FF, and DSP counts using regex
+    val synRptContent = new String(Files.readAllBytes(synReportOpt.get))
+    val lutCount = VivadoLUTRegex.findFirstMatchIn(synRptContent).map(_.group(1).toInt)
+    val ffCount  = VivadoFFRegex .findFirstMatchIn(synRptContent).map(_.group(1).toInt)
+    val dspCount = VivadoDSPRegex.findFirstMatchIn(synRptContent).map(_.group(1).toInt)
+    VivadoSynthesisResults(dir, synReportOpt.map(_.toString), lutCount, ffCount, dspCount)
   }
 
   def runVivadoImplementation(dir: String): VivadoImplementationResults = {
